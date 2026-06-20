@@ -211,6 +211,8 @@
     ACCEL      : 28,    // aceleração (m/s²) — chega ao máximo em ~0.35s
     DRAG       :  2.2,  // coef. de arrasto — para em ~0.7s
     VDRAG      :  3.0,  // arrasto vertical
+    boostVel   : [0, 0, 0],  // impulso temporário do aro (decai sozinho)
+    BOOST_DRAG :  0.55, // dissipa o boost em ~3s
     GRAVITY    :  2.0,  // queda livre suave (m/s²)
     SENSITIVITY: 0.0018,
     CAM_DIST   : 9,
@@ -231,125 +233,75 @@
        - Mega-torre central (0,0) h=35: hoops acima de 36 são seguros em (0,0).
        - Prédios externos máximos: ~18u de altura.                  */
   const MISSION_DEFS = [
-    /* ─── Missão 1 · Fácil · 3 aros ──────────────────────────── */
+    /* ─── Missão 1 · Iniciante · 3 aros · raios grandes, trajeto simples ─ */
     {
-      pickup  : { x: -58, z: -58, r: 5 },
-      delivery: { x:  58, z:  58, r: 5 },
+      decay   : 40,   // pts/s de penalidade — muito generoso
+      hitPad  : 0.80, // folga de detecção (aro parece maior)
+      pickup  : { x: -58, z: -58, r: 6 },
+      delivery: { x:  58, z:  58, r: 6 },
       hoops: [
-        { pos: [-40, 12, -40], radius: 6.5, axis: 'Z' },  // cruzamento de ruas ✓
-        { pos: [  0, 38,   0], radius: 6.5, axis: 'Z' },  // alto, acima da torre central ✓
-        { pos: [ 40, 12,  40], radius: 6.5, axis: 'Z' },  // cruzamento de ruas ✓
+        { pos: [-40, 12, -40], radius: 7,   angle:  45, tilt:  0 },
+        { pos: [  0, 38,   0], radius: 7,   angle:  45, tilt:  0 },
+        { pos: [ 40, 12,  40], radius: 7,   angle:  45, tilt:  0 },
       ],
     },
-    /* ─── Missão 2 · Fácil · 3 aros ──────────────────────────── */
+    /* ─── Missão 2 · Fácil · 4 aros · ângulos mistos, sem inclinação ───── */
     {
-      pickup  : { x:  58, z: -58, r: 5 },
-      delivery: { x: -58, z:  58, r: 5 },
-      hoops: [
-        { pos: [ 40, 12, -40], radius: 6.5, axis: 'X' },  // cruzamento ✓
-        { pos: [  0, 40,   5], radius: 6.5, axis: 'X' },  // alto ✓
-        { pos: [-40, 12,  40], radius: 6.5, axis: 'X' },  // cruzamento ✓
-      ],
-    },
-    /* ─── Missão 3 · Médio · 4 aros ──────────────────────────── */
-    {
+      decay   : 60,
+      hitPad  : 0.55,
       pickup  : { x: -62, z:   0, r: 5 },
       delivery: { x:  62, z:   0, r: 5 },
       hoops: [
-        { pos: [-40, 12,   0], radius: 6,   axis: 'X' },  // rua x=-40, z=0 ✓
-        { pos: [-15, 16,   0], radius: 6,   axis: 'X' },  // rua x=0, z=0, h>14 ✓
-        { pos: [ 15, 16,   0], radius: 6,   axis: 'X' },  // espelho ✓
-        { pos: [ 40, 12,   0], radius: 6,   axis: 'X' },  // rua x=40, z=0 ✓
+        { pos: [-40, 12,   0], radius: 6.5, angle:  90, tilt:  0 },
+        { pos: [-15, 18,   0], radius: 6.5, angle:  90, tilt:  0 },
+        { pos: [ 15, 18,   0], radius: 6.5, angle:  90, tilt:  0 },
+        { pos: [ 40, 12,   0], radius: 6.5, angle:  90, tilt:  0 },
       ],
     },
-    /* ─── Missão 4 · Médio · 4 aros ──────────────────────────── */
+    /* ─── Missão 3 · Médio · 5 aros · inclinações leves, curva ascendente ─ */
     {
-      pickup  : { x:   0, z: -62, r: 5 },
-      delivery: { x:   0, z:  62, r: 5 },
-      hoops: [
-        { pos: [  0, 12, -40], radius: 6,   axis: 'Z' },  // rua z=-40 ✓
-        { pos: [  0, 18, -18], radius: 6,   axis: 'Z' },  // z=-18, x=0 corridor, h>14 ✓
-        { pos: [  0, 18,  18], radius: 6,   axis: 'Z' },  // espelho ✓
-        { pos: [  0, 12,  40], radius: 6,   axis: 'Z' },  // rua z=40 ✓
-      ],
-    },
-    /* ─── Missão 5 · Médio+ · 5 aros ─────────────────────────── */
-    {
+      decay   : 85,
+      hitPad  : 0.35,
       pickup  : { x: -62, z: -50, r: 5 },
       delivery: { x:  62, z:  50, r: 5 },
       hoops: [
-        { pos: [-40, 14, -40], radius: 5.5, axis: 'Z' },  // cruzamento ✓
-        { pos: [-20, 26, -20], radius: 5.5, axis: 'X' },  // fora dos prédios, h=26>18 ✓
-        { pos: [  0, 42,   0], radius: 5.5, axis: 'Z' },  // alto ✓
-        { pos: [ 20, 26,  20], radius: 5.5, axis: 'X' },  // espelho ✓
-        { pos: [ 40, 14,  40], radius: 5.5, axis: 'Z' },  // cruzamento ✓
+        { pos: [-40, 11, -40], radius: 6,   angle:  45, tilt:   0 },
+        { pos: [-20, 20, -20], radius: 6,   angle:  45, tilt:  20 },
+        { pos: [  0, 30,   0], radius: 6,   angle:  45, tilt:   0 },
+        { pos: [ 20, 20,  20], radius: 6,   angle:  45, tilt: -20 },
+        { pos: [ 40, 11,  40], radius: 6,   angle:  45, tilt:   0 },
       ],
     },
-    /* ─── Missão 6 · Médio+ · 5 aros ─────────────────────────── */
+    /* ─── Missão 4 · Difícil · 6 aros · zig-zag + inclinações fortes ────── */
     {
-      pickup  : { x:  50, z: -62, r: 5 },
-      delivery: { x: -50, z:  62, r: 5 },
+      decay   : 115,
+      hitPad  : 0.20,
+      pickup  : { x:  55, z: -62, r: 5 },
+      delivery: { x: -55, z:  62, r: 5 },
       hoops: [
-        { pos: [ 40, 15, -40], radius: 5.5, axis: 'X' },  // cruzamento ✓
-        { pos: [ 40, 22, -15], radius: 5.5, axis: 'X' },  // rua x=40, fora dos prédios ✓
-        { pos: [  0, 44,   0], radius: 5.5, axis: 'Z' },  // alto ✓
-        { pos: [-40, 22,  15], radius: 5.5, axis: 'X' },  // rua x=-40 ✓
-        { pos: [-40, 15,  40], radius: 5.5, axis: 'X' },  // cruzamento ✓
+        { pos: [ 40, 12, -40], radius: 5.5, angle: 135, tilt:   0 },
+        { pos: [ 40, 22, -12], radius: 5.5, angle:  90, tilt:  35 },
+        { pos: [  0, 26,   0], radius: 5,   angle:  60, tilt:  20 },
+        { pos: [-22, 30,   0], radius: 5,   angle: 100, tilt: -30 },
+        { pos: [-40, 22,  12], radius: 5.5, angle:  90, tilt: -35 },
+        { pos: [-40, 12,  40], radius: 5.5, angle: 135, tilt:   0 },
       ],
     },
-    /* ─── Missão 7 · Difícil · 6 aros ────────────────────────── */
+    /* ─── Missão 5 · Expert · 8 aros · raios pequenos, ângulos arbitrários ─ */
     {
-      pickup  : { x: -65, z:  55, r: 5 },
-      delivery: { x:  65, z: -55, r: 5 },
-      hoops: [
-        { pos: [-40, 15,  40], radius: 5,   axis: 'Z' },  // cruzamento ✓
-        { pos: [-40, 24,  15], radius: 5,   axis: 'X' },  // rua x=-40 ✓
-        { pos: [-15, 32,   0], radius: 5,   axis: 'X' },  // h=32>14, rua z=0 ✓
-        { pos: [ 15, 32,   0], radius: 5,   axis: 'X' },  // espelho ✓
-        { pos: [ 40, 24, -15], radius: 5,   axis: 'X' },  // rua x=40 ✓
-        { pos: [ 40, 15, -40], radius: 5,   axis: 'Z' },  // cruzamento ✓
-      ],
-    },
-    /* ─── Missão 8 · Difícil · 6 aros ────────────────────────── */
-    {
-      pickup  : { x:   0, z:  68, r: 5 },
-      delivery: { x:   0, z: -68, r: 5 },
-      hoops: [
-        { pos: [  0, 14,  55], radius: 5,   axis: 'Z' },  // fora das torres ✓
-        { pos: [  0, 14,  42], radius: 5,   axis: 'Z' },  // z=42 < torre (z=43.5+) ✓
-        { pos: [-22, 32,  15], radius: 4.5, axis: 'X' },  // h=32>18 ✓
-        { pos: [ 22, 32, -15], radius: 4.5, axis: 'X' },  // espelho ✓
-        { pos: [  0, 14, -42], radius: 5,   axis: 'Z' },  // ✓
-        { pos: [  0, 14, -55], radius: 5,   axis: 'Z' },  // ✓
-      ],
-    },
-    /* ─── Missão 9 · Difícil+ · 7 aros ───────────────────────── */
-    {
-      pickup  : { x: -68, z: -68, r: 5 },
-      delivery: { x:  68, z:  68, r: 5 },
-      hoops: [
-        { pos: [-58, 14, -58], radius: 5,   axis: 'Z' },  // extremo, sem prédios ✓
-        { pos: [-40, 18, -40], radius: 5,   axis: 'Z' },  // cruzamento ✓
-        { pos: [-22, 30, -10], radius: 4.5, axis: 'X' },  // h=30>18 ✓
-        { pos: [  0, 46,   0], radius: 4.5, axis: 'Z' },  // alto ✓
-        { pos: [ 22, 30,  10], radius: 4.5, axis: 'X' },  // ✓
-        { pos: [ 40, 18,  40], radius: 5,   axis: 'Z' },  // cruzamento ✓
-        { pos: [ 58, 14,  58], radius: 5,   axis: 'Z' },  // extremo ✓
-      ],
-    },
-    /* ─── Missão 10 · Expert · 8 aros ─────────────────────────── */
-    {
+      decay   : 160,  // brutal: ~6s para S
+      hitPad  : 0.05, // quase sem margem
       pickup  : { x:  68, z:  68, r: 5 },
       delivery: { x: -68, z: -68, r: 5 },
       hoops: [
-        { pos: [ 58, 15,  55], radius: 4.5, axis: 'X' },  // extremo ✓
-        { pos: [ 40, 20,  40], radius: 4.5, axis: 'Z' },  // cruzamento ✓
-        { pos: [ 22, 38,  15], radius: 4,   axis: 'X' },  // h=38>18, ext buildings ✓
-        { pos: [  0, 50,   0], radius: 4,   axis: 'Z' },  // alto ✓
-        { pos: [-12, 38, -18], radius: 4,   axis: 'X' },  // h=38>14 ✓
-        { pos: [-28, 38, -12], radius: 4,   axis: 'Z' },  // h=38>18 ✓
-        { pos: [-40, 20, -40], radius: 4.5, axis: 'Z' },  // cruzamento ✓
-        { pos: [-58, 15, -55], radius: 4.5, axis: 'X' },  // extremo ✓
+        { pos: [ 55, 11,  55], radius: 4.5, angle: 225, tilt:   0 },
+        { pos: [ 40, 14,  40], radius: 4.5, angle: 225, tilt:  25 },
+        { pos: [ 20, 24,  15], radius: 4,   angle: 200, tilt:  40 },
+        { pos: [  0, 36,   0], radius: 4,   angle:  15, tilt:  20 },
+        { pos: [-12, 28, -18], radius: 4,   angle: 160, tilt: -40 },
+        { pos: [-28, 20, -10], radius: 4,   angle: 250, tilt: -30 },
+        { pos: [-40, 14, -40], radius: 4.5, angle: 225, tilt: -25 },
+        { pos: [-55, 11, -55], radius: 4.5, angle: 225, tilt:   0 },
       ],
     },
   ];
@@ -649,6 +601,11 @@
     drone.vel[2] += (az - drone.DRAG  * drone.vel[2]) * dt;
     drone.vel[1] += (ay - drone.VDRAG * drone.vel[1]) * dt;
 
+    /* ── Dissipa o boost temporário independentemente ────────────── */
+    drone.boostVel[0] -= drone.boostVel[0] * drone.BOOST_DRAG * dt;
+    drone.boostVel[1] -= drone.boostVel[1] * drone.BOOST_DRAG * dt;
+    drone.boostVel[2] -= drone.boostVel[2] * drone.BOOST_DRAG * dt;
+
     /* Limita a velocidade máxima horizontal e vertical */
     const hspd = Math.sqrt(drone.vel[0] ** 2 + drone.vel[2] ** 2);
     if (hspd > drone.SPEED) {
@@ -658,9 +615,9 @@
     drone.vel[1] = Math.max(-drone.VSPEED, Math.min(drone.VSPEED, drone.vel[1]));
 
     /* ── Aplica velocidade à posição ──────────────────────────── */
-    drone.pos[0] += drone.vel[0] * dt;
-    drone.pos[1] += drone.vel[1] * dt;
-    drone.pos[2] += drone.vel[2] * dt;
+    drone.pos[0] += (drone.vel[0] + drone.boostVel[0]) * dt;
+    drone.pos[1] += (drone.vel[1] + drone.boostVel[1]) * dt;
+    drone.pos[2] += (drone.vel[2] + drone.boostVel[2]) * dt;
 
     if (drone.pos[1] < 0.3) { drone.pos[1] = 0.3; drone.vel[1] = 0; }
     updateMission(dt);
@@ -820,7 +777,7 @@
   /* ── 13. Missão: lógica e renderização ───────────────────────────── */
 
   const SCORE_PER_HOOP  = 1000;
-  const SCORE_DECAY     = 40;  // pontos/segundo que perdem enquanto voa
+  const SCORE_DECAY     = 80;  // fallback global (não usado se def.decay existir)
   const BOOST_SPEED     = 12;  // m/s de impulso ao passar pelo aro
 
   function updateMission(dt) {
@@ -836,8 +793,9 @@
     /* Decaimento do score enquanto está na fase flying */
     if (mission.phase === 'flying') {
       mission.hoopTimer += dt;
+      const decay = mission.def.decay || SCORE_DECAY;
       /* score parcial para o aro atual */
-      mission.score = Math.max(0, SCORE_PER_HOOP - Math.floor(mission.hoopTimer * SCORE_DECAY));
+      mission.score = Math.max(0, SCORE_PER_HOOP - Math.floor(mission.hoopTimer * decay));
     }
 
     /* Detecção de cruzamento dos aros (baseada em dist. assinada ao plano) */
@@ -849,16 +807,18 @@
         const prev = mission.prevDists[i];
         /* Cruzou o plano? */
         if (prev !== 0 && Math.sign(currDist) !== Math.sign(prev) && Math.sign(currDist) !== 0) {
-          if (radialDist(pos, h) < h.radius - 0.32) {
+          if (radialDist(pos, h) < h.radius - (mission.def.hitPad ?? 0.32)) {
             /* Pontua + reseta timer */
-            mission.totalScore += Math.max(100, SCORE_PER_HOOP - Math.floor(mission.hoopTimer * SCORE_DECAY));
+            mission.totalScore += Math.max(100, SCORE_PER_HOOP - Math.floor(mission.hoopTimer * (mission.def.decay || SCORE_DECAY)));
             mission.hoopTimer   = 0;
             mission.currentHoop++;
 
-            /* Boost na direção forward do drone */
+            /* Boost temporário na direção forward do drone + componente vertical */
             const s = Math.sin(drone.yaw), c = Math.cos(drone.yaw);
-            drone.vel[0] += -s * BOOST_SPEED;
-            drone.vel[2] += -c * BOOST_SPEED;
+            drone.boostVel[0] = -s * BOOST_SPEED;
+            drone.boostVel[2] = -c * BOOST_SPEED;
+            /* Arrasta a velocidade vertical atual para dentro do boost */
+            drone.boostVel[1] = drone.vel[1] * 0.6;
 
             if (mission.currentHoop >= hoops.length) mission.phase = 'delivery';
           }
@@ -992,6 +952,67 @@
     }
   }
 
+  function drawWaypointArrow() {
+    if (mission.phase === 'done') return;
+
+    /* ── Determina alvo ─────────────────────────────────────────── */
+    let tx, tz;
+    const def = mission.def;
+    if (mission.phase === 'pickup') {
+      tx = def.pickup.x;
+      tz = def.pickup.z;
+    } else if (mission.phase === 'flying') {
+      const h = def.hoops[mission.currentHoop];
+      tx = h.pos[0];
+      tz = h.pos[2];
+    } else { // delivery
+      tx = def.delivery.x;
+      tz = def.delivery.z;
+    }
+
+    /* ── Ângulo horizontal drone → alvo ────────────────────────── */
+    const dx = tx - drone.pos[0];
+    const dz = tz - drone.pos[2];
+    const angle = Math.atan2(dx, dz); // rotação em Y para apontar -Z→alvo
+
+    /* Oscilação vertical suave */
+    const bob = Math.sin(frameTime * 3.0) * 0.12;
+    const arrowY = drone.pos[1] + 2.8 + bob;
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.uniform1f(loc.uAlpha, 0.55);
+
+    /* Cor: verde=coleta, amarelo=aro, laranja=entrega */
+    let ar, ag, ab;
+    if (mission.phase === 'pickup')         { ar = 0.1;  ag = 1.0;  ab = 0.2; }
+    else if (mission.phase === 'flying')    { ar = 1.0;  ag = 0.9;  ab = 0.0; }
+    else                                    { ar = 1.0;  ag = 0.4;  ab = 0.0; }
+
+    bindMesh();
+
+    /* Base da seta: haste (orientação -Z = frente no espaço local) */
+    mat4.identity(modelMat);
+    mat4.translate(modelMat, modelMat, [drone.pos[0], arrowY, drone.pos[2]]);
+    mat4.rotateY(modelMat, modelMat, angle);
+    mat4.translate(modelMat, modelMat, [0, 0, 0.32]); // deslocamento -Z = frente
+    mat4.scale(modelMat, modelMat, [0.10, 0.10, 0.45]);
+    drawBox(ar, ag, ab);
+
+    /* Ponta triangular: cubo achatado e mais largo na frente */
+    mat4.identity(modelMat);
+    mat4.translate(modelMat, modelMat, [drone.pos[0], arrowY, drone.pos[2]]);
+    mat4.rotateY(modelMat, modelMat, angle);
+    mat4.translate(modelMat, modelMat, [0, 0, -0.22]);
+    mat4.scale(modelMat, modelMat, [0.34, 0.15, 0.28]);
+    drawBox(ar, ag, ab);
+
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+    gl.uniform1f(loc.uAlpha, 1.0);
+  }
+
   /* Aura cilíndrica transparente ao redor da zona */
   function drawAura(zone, r, g, b) {
     const LAYERS = 10;
@@ -1077,6 +1098,8 @@
         );
       }
     }
+    /* ── Seta de waypoint sobre o drone ─────────────────────────── */
+    drawWaypointArrow();
   }
   /* ── Dispara o loop ─────────────────────────────────────────── */
   requestAnimationFrame(frame);
