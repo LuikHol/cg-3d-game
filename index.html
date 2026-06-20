@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drone Delivery 3D</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+
+    #canvas { display: block; }
+
+    /* ── HUD overlay ────────────────────────────────────── */
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      color: #fff;
+      text-shadow: 1px 1px 3px #000;
+    }
+
+    #controls {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(0, 0, 0, 0.50);
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    #controls kbd {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: inherit;
+    }
+
+    #title {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 3px;
+    }
+
+    #info {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(0, 0, 0, 0.50);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    /* Overlay de pausa */
+    #hud-pause {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+      gap: 12px;
+      pointer-events: auto;  /* permite interação com slider e clique */
+      cursor: pointer;
+    }
+
+    #hud-pause .pause-title {
+      font-size: 36px;
+      font-weight: bold;
+      letter-spacing: 6px;
+    }
+
+    #hud-pause .pause-hint {
+      font-size: 15px;
+      opacity: 0.80;
+    }
+
+    #hud-pause .sensitivity-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      margin-top: 6px;
+    }
+
+    #hud-pause input[type=range] {
+      width: 160px;
+      accent-color: #4af;
+    }
+
+    /* HUD de missão */
+    #mission-hud {
+      position: absolute;
+      top: 55px;
+      right: 16px;
+      background: rgba(0, 0, 0, 0.50);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      min-width: 210px;
+      line-height: 1.8;
+    }
+
+    #mission-hud .bar-bg {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      height: 8px;
+      margin-top: 3px;
+      overflow: hidden;
+    }
+
+    #mission-hud .bar-fill {
+      height: 8px;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.06s linear;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="canvas"></canvas>
+
+  <div id="hud">
+    <div id="controls">
+      <kbd>Clique</kbd> — Capturar mouse (Esc para soltar)<br>
+      <kbd>Mouse</kbd> — Girar (yaw)<br>
+      <kbd>W</kbd> / <kbd>S</kbd> — Frente / Trás<br>
+      <kbd>A</kbd> / <kbd>D</kbd> — Strafe Esq / Dir<br>
+      <kbd>Space</kbd> — Subir<br>
+      <kbd>Shift</kbd> — Descer
+    </div>
+
+    <div id="title">DRONE DELIVERY 3D</div>
+
+    <div id="info">
+      <span id="hud-pos">X: 0.0 &nbsp; Y: 3.0 &nbsp; Z: 0.0</span>
+    </div>
+
+    <div id="mission-hud">
+      <div id="m-phase">Encontre a zona verde de coleta</div>
+      <div id="m-hoops" style="display:none"></div>
+      <div id="m-score-row" style="display:none;font-size:13px;line-height:1.6">
+        <span id="m-rank-wrap">Rank: <b id="m-score" style="font-size:18px">-</b></span>
+        &nbsp;&nbsp;
+        <span style="color:#8df">Tempo: <b id="m-timer">0.0s</b></span>
+      </div>
+      <div class="bar-bg" id="m-bar-wrap">
+        <div class="bar-fill" id="m-bar-fill"></div>
+      </div>
+    </div>
+
+    <div id="hud-pause">
+      <div class="pause-title">PAUSADO</div>
+      <div class="pause-hint">Clique ou pressione <kbd>P</kbd> para retomar</div>
+      <div class="sensitivity-row">
+        <span>Sensibilidade</span>
+        <input type="range" id="sens-slider" min="1" max="20" value="9" style="cursor:default">
+        <span id="sens-value">9</span>
+      </div>
+    </div>
+  </div>
+
+  <!--
+    glMatrix – biblioteca de álgebra linear (permitida pelo enunciado).
+    Nenhuma funcionalidade gráfica é delegada a ela.
+  -->
+  <script src="js/gl-matrix-min.js"></script>
+
+  <script src="js/shaders.js"></script>
+  <script src="js/geometry.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
