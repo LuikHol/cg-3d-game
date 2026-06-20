@@ -70,8 +70,14 @@
     uEyePos   : gl.getUniformLocation(prog, 'uEyePos'),
     uColor    : gl.getUniformLocation(prog, 'uColor'),
     uAlpha    : gl.getUniformLocation(prog, 'uAlpha'),
+    uAmbient        : gl.getUniformLocation(prog, 'uAmbient'),
+    uLightIntensity : gl.getUniformLocation(prog, 'uLightIntensity'),
+    uEmissive       : gl.getUniformLocation(prog, 'uEmissive'),
+    uSpecular       : gl.getUniformLocation(prog, 'uSpecular'),
   };
   gl.uniform1f(gl.getUniformLocation(prog, 'uAlpha'), 1.0); // default opaco
+  gl.uniform1f(loc.uAmbient,  0.25);                        // default dia
+    gl.uniform1f(loc.uLightIntensity, 1.0);                   // default dia pleno
 
   /* ── 4. Buffers do cubo compartilhado ───────────────────────── */
 
@@ -207,7 +213,7 @@
     tiltPitch  : 0,
     tiltRoll   : 0,
     SPEED      : 10,    // velocidade máxima horizontal
-    VSPEED     :  6,    // velocidade máxima vertical
+    VSPEED     : 12,    // velocidade máxima vertical
     ACCEL      : 28,    // aceleração (m/s²) — chega ao máximo em ~0.35s
     DRAG       :  2.2,  // coef. de arrasto — para em ~0.7s
     VDRAG      :  3.0,  // arrasto vertical
@@ -233,75 +239,75 @@
        - Mega-torre central (0,0) h=35: hoops acima de 36 são seguros em (0,0).
        - Prédios externos máximos: ~18u de altura.                  */
   const MISSION_DEFS = [
-    /* ─── Missão 1 · Iniciante · 3 aros · raios grandes, trajeto simples ─ */
+    /* ─── Missão 1 · Iniciante · 3 aros ───────────────────────────── */
     {
-      decay   : 40,   // pts/s de penalidade — muito generoso
-      hitPad  : 0.80, // folga de detecção (aro parece maior)
+      decay   : 40,
+      hitPad  : 0.80,
       pickup  : { x: -58, z: -58, r: 6 },
       delivery: { x:  58, z:  58, r: 6 },
       hoops: [
-        { pos: [-40, 12, -40], radius: 7,   angle:  45, tilt:  0 },
-        { pos: [  0, 38,   0], radius: 7,   angle:  45, tilt:  0 },
-        { pos: [ 40, 12,  40], radius: 7,   angle:  45, tilt:  0 },
+        { pos: [-40, 24, -40], radius: 7,   angle:  45, tilt:  0 },
+        { pos: [  0, 82,   0], radius: 7,   angle:  45, tilt:  0 },
+        { pos: [ 40, 24,  40], radius: 7,   angle:  45, tilt:  0 },
       ],
     },
-    /* ─── Missão 2 · Fácil · 4 aros · ângulos mistos, sem inclinação ───── */
+    /* ─── Missão 2 · Fácil · 4 aros ────────────────────────────── */
     {
       decay   : 60,
       hitPad  : 0.55,
       pickup  : { x: -62, z:   0, r: 5 },
       delivery: { x:  62, z:   0, r: 5 },
       hoops: [
-        { pos: [-40, 12,   0], radius: 6.5, angle:  90, tilt:  0 },
-        { pos: [-15, 18,   0], radius: 6.5, angle:  90, tilt:  0 },
-        { pos: [ 15, 18,   0], radius: 6.5, angle:  90, tilt:  0 },
-        { pos: [ 40, 12,   0], radius: 6.5, angle:  90, tilt:  0 },
+        { pos: [-40, 24,   0], radius: 6.5, angle:  90, tilt:  0 },
+        { pos: [-15, 36,   0], radius: 6.5, angle:  90, tilt:  0 },
+        { pos: [ 15, 36,   0], radius: 6.5, angle:  90, tilt:  0 },
+        { pos: [ 40, 24,   0], radius: 6.5, angle:  90, tilt:  0 },
       ],
     },
-    /* ─── Missão 3 · Médio · 5 aros · inclinações leves, curva ascendente ─ */
+    /* ─── Missão 3 · Médio · 5 aros ────────────────────────────── */
     {
       decay   : 85,
       hitPad  : 0.35,
       pickup  : { x: -62, z: -50, r: 5 },
       delivery: { x:  62, z:  50, r: 5 },
       hoops: [
-        { pos: [-40, 11, -40], radius: 6,   angle:  45, tilt:   0 },
-        { pos: [-20, 20, -20], radius: 6,   angle:  45, tilt:  20 },
-        { pos: [  0, 30,   0], radius: 6,   angle:  45, tilt:   0 },
-        { pos: [ 20, 20,  20], radius: 6,   angle:  45, tilt: -20 },
-        { pos: [ 40, 11,  40], radius: 6,   angle:  45, tilt:   0 },
+        { pos: [-40, 22, -40], radius: 6,   angle:  45, tilt:   0 },
+        { pos: [-20, 40, -20], radius: 6,   angle:  45, tilt:  20 },
+        { pos: [  0, 82,   0], radius: 6,   angle:  45, tilt:   0 },
+        { pos: [ 20, 40,  20], radius: 6,   angle:  45, tilt: -20 },
+        { pos: [ 40, 22,  40], radius: 6,   angle:  45, tilt:   0 },
       ],
     },
-    /* ─── Missão 4 · Difícil · 6 aros · zig-zag + inclinações fortes ────── */
+    /* ─── Missão 4 · Difícil · 6 aros ──────────────────────────── */
     {
       decay   : 115,
       hitPad  : 0.20,
       pickup  : { x:  55, z: -62, r: 5 },
       delivery: { x: -55, z:  62, r: 5 },
       hoops: [
-        { pos: [ 40, 12, -40], radius: 5.5, angle: 135, tilt:   0 },
-        { pos: [ 40, 22, -12], radius: 5.5, angle:  90, tilt:  35 },
-        { pos: [  0, 26,   0], radius: 5,   angle:  60, tilt:  20 },
-        { pos: [-22, 30,   0], radius: 5,   angle: 100, tilt: -30 },
-        { pos: [-40, 22,  12], radius: 5.5, angle:  90, tilt: -35 },
-        { pos: [-40, 12,  40], radius: 5.5, angle: 135, tilt:   0 },
+        { pos: [ 40, 24, -40], radius: 5.5, angle: 135, tilt:   0 },
+        { pos: [ 40, 44, -12], radius: 5.5, angle:  90, tilt:  35 },
+        { pos: [  0, 82,   0], radius: 5,   angle:  60, tilt:  20 },
+        { pos: [-22, 60,   0], radius: 5,   angle: 100, tilt: -30 },
+        { pos: [-40, 44,  12], radius: 5.5, angle:  90, tilt: -35 },
+        { pos: [-40, 24,  40], radius: 5.5, angle: 135, tilt:   0 },
       ],
     },
-    /* ─── Missão 5 · Expert · 8 aros · raios pequenos, ângulos arbitrários ─ */
+    /* ─── Missão 5 · Expert · 8 aros ───────────────────────────── */
     {
-      decay   : 160,  // brutal: ~6s para S
-      hitPad  : 0.05, // quase sem margem
+      decay   : 160,
+      hitPad  : 0.05,
       pickup  : { x:  68, z:  68, r: 5 },
       delivery: { x: -68, z: -68, r: 5 },
       hoops: [
-        { pos: [ 55, 11,  55], radius: 4.5, angle: 225, tilt:   0 },
-        { pos: [ 40, 14,  40], radius: 4.5, angle: 225, tilt:  25 },
-        { pos: [ 20, 24,  15], radius: 4,   angle: 200, tilt:  40 },
-        { pos: [  0, 36,   0], radius: 4,   angle:  15, tilt:  20 },
-        { pos: [-12, 28, -18], radius: 4,   angle: 160, tilt: -40 },
-        { pos: [-28, 20, -10], radius: 4,   angle: 250, tilt: -30 },
-        { pos: [-40, 14, -40], radius: 4.5, angle: 225, tilt: -25 },
-        { pos: [-55, 11, -55], radius: 4.5, angle: 225, tilt:   0 },
+        { pos: [ 55, 22,  55], radius: 4.5, angle: 225, tilt:   0 },
+        { pos: [ 40, 28,  40], radius: 4.5, angle: 225, tilt:  25 },
+        { pos: [ 20, 48,  15], radius: 4,   angle: 200, tilt:  40 },
+        { pos: [  0, 76,   0], radius: 4,   angle:  15, tilt:  20 },
+        { pos: [-12, 56, -18], radius: 4,   angle: 160, tilt: -40 },
+        { pos: [-28, 40, -10], radius: 4,   angle: 250, tilt: -30 },
+        { pos: [-40, 28, -40], radius: 4.5, angle: 225, tilt: -25 },
+        { pos: [-55, 22, -55], radius: 4.5, angle: 225, tilt:   0 },
       ],
     },
   ];
@@ -375,103 +381,172 @@
    */
   const buildings = [
     /* ── Quarteirão NE interno ── */
-    [  9,  9, 4, 4,  8, 0.55, 0.55, 0.65],
-    [ 15,  9, 3, 3, 12, 0.60, 0.45, 0.40],
-    [  9, 15, 4, 3,  6, 0.45, 0.60, 0.45],
-    [ 15, 15, 3, 3, 10, 0.50, 0.50, 0.50],
+    [  9,  9, 4, 8,  8, 0.58, 0.56, 0.52],  // concreto quente
+    [ 15,  9, 5, 5, 12, 0.26, 0.38, 0.55],  // vidro azul
+    [  9, 15, 8, 3,  6, 0.70, 0.64, 0.50],  // pedra bege
+    [ 15, 15, 4, 4, 10, 0.54, 0.53, 0.54],  // concreto neutro
     /* ── Quarteirão NO interno ── */
-    [ -9,  9, 4, 4, 10, 0.55, 0.50, 0.40],
-    [-15,  9, 3, 3,  7, 0.40, 0.45, 0.60],
-    [ -9, 15, 4, 3,  5, 0.50, 0.40, 0.50],
-    [-15, 15, 3, 3, 14, 0.65, 0.55, 0.35],
+    [ -9,  9, 4, 8, 10, 0.58, 0.40, 0.32],  // tijolo
+    [-15,  9, 5, 5,  7, 0.56, 0.56, 0.54],  // concreto
+    [ -9, 15, 8, 3,  5, 0.72, 0.66, 0.52],  // pedra clara
+    [-15, 15, 4, 4, 14, 0.30, 0.36, 0.52],  // aço azul alto
     /* ── Quarteirão SE interno ── */
-    [  9, -9, 4, 4,  9, 0.35, 0.50, 0.65],
-    [ 15, -9, 3, 3,  6, 0.60, 0.60, 0.45],
-    [  9,-15, 4, 3, 11, 0.45, 0.35, 0.55],
-    [ 15,-15, 3, 3,  8, 0.55, 0.45, 0.35],
+    [  9, -9, 4, 8,  9, 0.82, 0.80, 0.78],  // branco moderno
+    [ 15, -9, 5, 5,  6, 0.54, 0.53, 0.54],  // concreto
+    [  9,-15, 8, 3, 11, 0.28, 0.34, 0.50],  // vidro escuro
+    [ 15,-15, 4, 4,  8, 0.62, 0.44, 0.34],  // terracota
     /* ── Quarteirão SO interno ── */
-    [ -9, -9, 4, 4,  7, 0.40, 0.55, 0.50],
-    [-15, -9, 3, 3, 13, 0.65, 0.40, 0.40],
-    [ -9,-15, 4, 3,  5, 0.35, 0.55, 0.65],
-    [-15,-15, 3, 3,  9, 0.50, 0.50, 0.40],
+    [ -9, -9, 4, 8,  7, 0.56, 0.56, 0.54],  // concreto
+    [-15, -9, 5, 5, 13, 0.26, 0.38, 0.55],  // vidro azul alto
+    [ -9,-15, 8, 3,  5, 0.68, 0.62, 0.48],  // pedra bege
+    [-15,-15, 4, 4,  9, 0.32, 0.38, 0.52],  // aço azul
 
-    /* ── Quarteirão NE externo (entre ruas z=0/40, x=0/40) ── */
-    [ 24, 10, 5, 5, 14, 0.50, 0.45, 0.60],
-    [ 32, 10, 4, 4,  9, 0.60, 0.50, 0.35],
-    [ 24, 18, 4, 5,  7, 0.40, 0.55, 0.50],
-    [ 32, 22, 5, 4, 16, 0.55, 0.40, 0.40],
-    [ 24, 30, 6, 5, 11, 0.45, 0.60, 0.55],
-    [ 33, 30, 4, 4,  8, 0.60, 0.55, 0.35],
+    /* ── Quarteirão NE externo ── */
+    [ 24, 10, 4, 9, 14, 0.26, 0.38, 0.55],  // vidro
+    [ 32, 10, 8, 4,  9, 0.60, 0.58, 0.55],  // concreto
+    [ 24, 18, 5, 5,  7, 0.70, 0.64, 0.50],  // pedra
+    [ 32, 22, 9, 4, 16, 0.30, 0.36, 0.52],  // aço
+    [ 24, 30, 6, 6, 11, 0.58, 0.56, 0.54],  // concreto
+    [ 33, 30, 4, 8,  8, 0.62, 0.44, 0.34],  // terracota
     /* ── Quarteirão NO externo ── */
-    [-24, 10, 5, 5, 12, 0.45, 0.50, 0.65],
-    [-32, 10, 4, 4, 18, 0.55, 0.40, 0.40],
-    [-24, 20, 5, 4,  7, 0.40, 0.60, 0.50],
-    [-32, 24, 4, 5, 10, 0.60, 0.45, 0.35],
-    [-25, 32, 5, 4, 13, 0.50, 0.55, 0.45],
-    [-34, 30, 4, 5,  8, 0.65, 0.40, 0.40],
+    [-24, 10, 4, 9, 12, 0.30, 0.36, 0.52],  // aço
+    [-32, 10, 8, 4, 18, 0.26, 0.38, 0.55],  // vidro alto
+    [-24, 20, 5, 5,  7, 0.58, 0.56, 0.54],  // concreto
+    [-32, 24, 9, 4, 10, 0.70, 0.64, 0.50],  // pedra
+    [-25, 32, 5, 6, 13, 0.82, 0.80, 0.78],  // branco
+    [-34, 30, 4, 8,  8, 0.60, 0.42, 0.32],  // tijolo
     /* ── Quarteirão SE externo ── */
-    [ 24,-10, 5, 5, 10, 0.35, 0.55, 0.65],
-    [ 32,-12, 4, 4, 15, 0.60, 0.50, 0.40],
-    [ 24,-20, 4, 5,  6, 0.45, 0.40, 0.60],
-    [ 32,-28, 5, 4, 12, 0.50, 0.60, 0.40],
-    [ 24,-33, 6, 5,  9, 0.55, 0.45, 0.50],
-    [ 33,-33, 4, 4, 17, 0.40, 0.50, 0.65],
+    [ 24,-10, 4, 9, 10, 0.58, 0.56, 0.54],  // concreto
+    [ 32,-12, 8, 4, 15, 0.28, 0.34, 0.50],  // vidro escuro
+    [ 24,-20, 5, 5,  6, 0.70, 0.64, 0.50],  // pedra
+    [ 32,-28, 9, 4, 12, 0.82, 0.80, 0.78],  // branco
+    [ 24,-33, 6, 6,  9, 0.58, 0.40, 0.32],  // tijolo
+    [ 33,-33, 4, 8, 17, 0.26, 0.38, 0.55],  // vidro
     /* ── Quarteirão SO externo ── */
-    [-24,-10, 5, 5,  8, 0.55, 0.55, 0.40],
-    [-32,-12, 4, 4, 14, 0.40, 0.45, 0.65],
-    [-24,-22, 5, 4, 10, 0.60, 0.40, 0.45],
-    [-32,-26, 4, 5,  7, 0.50, 0.55, 0.40],
-    [-25,-33, 5, 4, 11, 0.35, 0.60, 0.55],
-    [-34,-33, 4, 5, 16, 0.60, 0.45, 0.35],
+    [-24,-10, 4, 9,  8, 0.60, 0.58, 0.55],  // concreto
+    [-32,-12, 8, 4, 14, 0.30, 0.36, 0.52],  // aço
+    [-24,-22, 5, 5, 10, 0.64, 0.44, 0.34],  // terracota
+    [-32,-26, 9, 4,  7, 0.56, 0.56, 0.54],  // concreto
+    [-25,-33, 5, 6, 11, 0.70, 0.64, 0.50],  // pedra
+    [-34,-33, 4, 8, 16, 0.28, 0.34, 0.50],  // vidro escuro
 
     /* ── Torres marcantes espalhadas ── */
-    [  0,  47, 7, 7, 22, 0.60, 0.50, 0.40],
-    [ 47,   0, 5, 5, 28, 0.40, 0.40, 0.70],
-    [-47,   0, 6, 6, 18, 0.55, 0.45, 0.35],
-    [  0, -47, 6, 6, 20, 0.45, 0.58, 0.55],
-    [ 47,  47, 5, 5, 15, 0.50, 0.50, 0.65],
-    [-47,  47, 5, 5, 12, 0.65, 0.45, 0.40],
-    [ 47, -47, 5, 5, 24, 0.40, 0.55, 0.55],
-    [-47, -47, 5, 5, 19, 0.55, 0.40, 0.50],
+    [  0,  47, 7, 7, 22, 0.82, 0.80, 0.78],  // branca
+    [ 47,   0, 5, 9, 28, 0.24, 0.34, 0.52],  // vidro escuro alta
+    [-47,   0, 9, 5, 18, 0.60, 0.58, 0.55],  // concreto laje
+    [  0, -47, 6, 6, 20, 0.30, 0.36, 0.52],  // aço
+    [ 47,  47, 5, 5, 15, 0.70, 0.64, 0.50],  // pedra
+    [-47,  47, 8, 4, 12, 0.58, 0.40, 0.32],  // tijolo laje
+    [ 47, -47, 4, 8, 24, 0.26, 0.38, 0.55],  // vidro laje alto
+    [-47, -47, 5, 5, 19, 0.82, 0.80, 0.78],  // branca
     /* Mega-torre central */
-    [  0,   0, 8, 8, 35, 0.30, 0.30, 0.45],
+    [  0,   0, 8, 8, 35, 0.20, 0.26, 0.40],  // vidro muito escuro
 
-    /* ── Anel externo NE (x=55-78, z=55-78) ── */
-    [ 58,  55, 6, 6, 16, 0.50, 0.45, 0.60],
-    [ 68,  55, 5, 4, 12, 0.60, 0.50, 0.35],
-    [ 58,  65, 5, 5, 20, 0.40, 0.55, 0.55],
-    [ 72,  65, 4, 4,  9, 0.55, 0.40, 0.45],
-    [ 63,  72, 6, 5, 14, 0.45, 0.60, 0.40],
+    /* ── Anel externo NE ── */
+    [ 58,  55, 5, 9, 16, 0.60, 0.58, 0.55],
+    [ 68,  55, 8, 4, 12, 0.26, 0.38, 0.55],
+    [ 58,  65, 5, 5, 20, 0.28, 0.34, 0.50],
+    [ 72,  65, 4, 4,  9, 0.70, 0.64, 0.50],
+    [ 63,  72, 6, 5, 14, 0.82, 0.80, 0.78],
     /* ── Anel externo NO ── */
-    [-58,  55, 6, 6, 18, 0.45, 0.50, 0.65],
-    [-68,  55, 5, 4, 11, 0.55, 0.40, 0.40],
-    [-58,  65, 5, 5, 22, 0.40, 0.60, 0.50],
-    [-72,  65, 4, 4, 10, 0.60, 0.45, 0.35],
-    [-63,  72, 6, 5, 15, 0.50, 0.55, 0.45],
+    [-58,  55, 5, 9, 18, 0.30, 0.36, 0.52],
+    [-68,  55, 8, 4, 11, 0.58, 0.40, 0.32],
+    [-58,  65, 5, 5, 22, 0.24, 0.34, 0.52],
+    [-72,  65, 4, 4, 10, 0.70, 0.64, 0.50],
+    [-63,  72, 6, 5, 15, 0.60, 0.58, 0.55],
     /* ── Anel externo SE ── */
-    [ 58, -55, 6, 6, 14, 0.35, 0.55, 0.65],
-    [ 68, -55, 5, 4, 19, 0.60, 0.50, 0.40],
-    [ 58, -65, 5, 5, 10, 0.45, 0.40, 0.65],
-    [ 72, -65, 4, 4, 16, 0.50, 0.60, 0.40],
-    [ 63, -72, 6, 5, 13, 0.55, 0.45, 0.50],
+    [ 58, -55, 5, 9, 14, 0.58, 0.56, 0.54],
+    [ 68, -55, 8, 4, 19, 0.26, 0.38, 0.55],
+    [ 58, -65, 5, 5, 10, 0.70, 0.64, 0.50],
+    [ 72, -65, 4, 4, 16, 0.30, 0.36, 0.52],
+    [ 63, -72, 6, 5, 13, 0.82, 0.80, 0.78],
     /* ── Anel externo SO ── */
-    [-58, -55, 6, 6, 17, 0.55, 0.55, 0.40],
-    [-68, -55, 5, 4, 10, 0.40, 0.45, 0.65],
-    [-58, -65, 5, 5, 21, 0.60, 0.40, 0.45],
-    [-72, -65, 4, 4,  8, 0.50, 0.55, 0.40],
-    [-63, -72, 6, 5, 12, 0.35, 0.60, 0.55],
+    [-58, -55, 5, 9, 17, 0.60, 0.58, 0.55],
+    [-68, -55, 8, 4, 10, 0.58, 0.40, 0.32],
+    [-58, -65, 5, 5, 21, 0.28, 0.34, 0.50],
+    [-72, -65, 4, 4,  8, 0.70, 0.64, 0.50],
+    [-63, -72, 6, 5, 12, 0.82, 0.80, 0.78],
     /* ── Torres de borda ── */
-    [  0,  72, 6, 6, 18, 0.55, 0.48, 0.38],
-    [  0, -72, 6, 6, 16, 0.42, 0.55, 0.52],
-    [ 72,   0, 5, 5, 22, 0.38, 0.42, 0.68],
-    [-72,   0, 5, 5, 14, 0.52, 0.42, 0.35],
+    [  0,  72, 6, 6, 18, 0.30, 0.36, 0.52],
+    [  0, -72, 6, 6, 16, 0.60, 0.58, 0.55],
+    [ 72,   0, 9, 5, 22, 0.24, 0.34, 0.52],
+    [-72,   0, 5, 9, 14, 0.70, 0.64, 0.50],
   ];
 
-  /* ── 8. Fonte de luz (sol em órbita) ────────────────────────── */
+  /* ── Dados de janelas pré-computados por prédio ─────────────────
+   * Cada janela: { px, py, pz, sx, sy, sz, warm }
+   *   warm 0=quente · 1=neutro · 2=frio · 3=beacon
+   * Janelas muito finas (0.018 de espessura) encostadas na face externa
+   * do prédio – sem risco de vazar pelo lado oposto.
+   * Máximo 3 colunas por fachada.
+   * ──────────────────────────────────────────────────────────────── */
+  const buildingWindowData = (function () {
+    /* cx,cz = centro do bloco, fw,fd = largura/profundidade, yBase = Y da base,
+       blockH = altura do bloco, wtype = tipo de luz */
+    function addFaceWindows(wins, cx, cz, fw, fd, yBase, blockH, wtype) {
+      const rows = Math.min(Math.max(1, Math.floor(blockH / 4.5)), 5);
+      const ncX  = Math.min(2, Math.max(1, Math.floor(fw / 2.8)));  // faces ±Z
+      const ncZ  = Math.min(2, Math.max(1, Math.floor(fd / 2.8)));  // faces ±X
+      const T    = 0.018;  // espessura da janela
+      for (let row = 0; row < rows; row++) {
+        const wy = yBase + 1.2 + (row + 0.5) * ((blockH - 1.2) / rows);
+        /* Faces ±X – janelas ao longo de Z */
+        for (let col = 0; col < ncZ; col++) {
+          const t   = ncZ > 1 ? col / (ncZ - 1) : 0.5;
+          const wz  = cz + (t - 0.5) * fd * 0.66;
+          const wsz = Math.min(fd * 0.55 / ncZ, 1.20);
+          const off = fw / 2 + T;   // centro a T inteiros fora da face – sem Z-fight
+          wins.push({ px: cx + off, py: wy, pz: wz, sx: T, sy: 0.80, sz: wsz, warm: wtype, nx:  1, nz: 0 });
+          wins.push({ px: cx - off, py: wy, pz: wz, sx: T, sy: 0.80, sz: wsz, warm: wtype, nx: -1, nz: 0 });
+        }
+        /* Faces ±Z – janelas ao longo de X */
+        for (let col = 0; col < ncX; col++) {
+          const t   = ncX > 1 ? col / (ncX - 1) : 0.5;
+          const wx  = cx + (t - 0.5) * fw * 0.66;
+          const wsx = Math.min(fw * 0.55 / ncX, 1.20);
+          const off = fd / 2 + T;
+          wins.push({ px: wx, py: wy, pz: cz + off, sx: wsx, sy: 0.80, sz: T, warm: wtype, nx: 0, nz:  1 });
+          wins.push({ px: wx, py: wy, pz: cz - off, sx: wsx, sy: 0.80, sz: T, warm: wtype, nx: 0, nz: -1 });
+        }
+      }
+    }
 
-  let  lightAngle = 0.3;
-  const LIGHT_R   = 100;
-  const LIGHT_H   = 60;
+    return buildings.map(function (b, bi) {
+      const bx = b[0], bz = b[1], bw = b[2], bd = b[3], bh = b[4];
+      if (bh < 5) return [];
+      const warm = (bi * 17 + 3) % 3;
+      const wins = [];
+
+      /* Corpo principal */
+      addFaceWindows(wins, bx, bz, bw, bd, 0, bh, warm);
+
+      if (bh >= 12) {
+        /* Primeiro recuo */
+        const setH = bh * 0.36;
+        const sw   = bw * 0.76, sd = bd * 0.76;
+        addFaceWindows(wins, bx, bz, sw, sd, bh, setH, warm);
+
+        if (bh >= 20) {
+          /* Segundo recuo */
+          const s2H = setH * 0.50;
+          const s2Y = bh + setH;
+          const sw2 = sw * 0.70, sd2 = sd * 0.70;
+          addFaceWindows(wins, bx, bz, sw2, sd2, s2Y, s2H, warm);
+
+          /* Beacon no topo da antena */
+          const beaconY = bh * 1.60 + 2.94;
+          wins.push({ px: bx, py: beaconY, pz: bz, sx: 0.26, sy: 0.26, sz: 0.26, warm: 3, nx: 0, nz: 0 });
+        }
+      }
+      return wins;
+    });
+  })();
+
+  /* ── 8. Fonte de luz – ciclo dia/noite ────────────────────────── */
+
+  const LIGHT_R   = 120;
+  let   timeOfDay = 0.38;        // 0=meia-noite · 0.25=nascer · 0.5=meio-dia
+  const DAY_SPEED = 1 / 480;    // ciclo completo em ~8 min reais
 
   /* ── 9. HUD ─────────────────────────────────────────────────── */
 
@@ -485,6 +560,12 @@
     const v = Number(sensSlider.value);
     sensValue.textContent = v;
     drone.SENSITIVITY = v * 0.0002;
+  });
+
+  const timeSlider = document.getElementById('time-slider');
+  const timeValue  = document.getElementById('time-value');
+  timeSlider.addEventListener('input', () => {
+    timeOfDay = Number(timeSlider.value) / 1000;
   });
 
   /* Clique no fundo do overlay (não em filhos) → despausar */
@@ -545,11 +626,14 @@
     lastT = now;
     frameTime += dt;
 
-    /* ── Atualiza luz (sol girando) ───────────────────────────── */
-    lightAngle += 0.22 * dt;
-    lightPos[0] = Math.cos(lightAngle) * LIGHT_R;
-    lightPos[1] = LIGHT_H;
-    lightPos[2] = Math.sin(lightAngle) * LIGHT_R;
+    /* ── Avança ciclo dia/noite ──────────────────────────────── */
+    if (!paused) timeOfDay = (timeOfDay + DAY_SPEED * dt) % 1.0;
+    /* Sincroniza slider de hora (visível também no menu de pausa) */
+    if (document.activeElement !== timeSlider)
+      timeSlider.value = Math.round(timeOfDay * 1000);
+    const _th = Math.floor(timeOfDay * 24);
+    const _tm = Math.floor((timeOfDay * 24 * 60) % 60);
+    timeValue.textContent = String(_th).padStart(2, '0') + ':' + String(_tm).padStart(2, '0');
 
     /* ── Atualiza drone ───────────────────────────────────────── */
     /* Pausa: congela tudo, mas continua renderizando */
@@ -620,6 +704,7 @@
     drone.pos[2] += (drone.vel[2] + drone.boostVel[2]) * dt;
 
     if (drone.pos[1] < 0.3) { drone.pos[1] = 0.3; drone.vel[1] = 0; }
+    if (drone.pos[1] > 150)  { drone.pos[1] = 150; drone.vel[1] = 0; drone.boostVel[1] = 0; }
     updateMission(dt);
     /* ── Tilt visual suavizado (baseado na velocidade real) ─────── */
     // Projeta a velocidade horizontal nos eixos local do drone
@@ -655,9 +740,36 @@
         `Y: ${drone.pos[1].toFixed(1)} \u00a0 ` +
         `Z: ${drone.pos[2].toFixed(1)}`;
 
+    /* ── Sol, céu e iluminação dinâmica ─────────────────────── */
+    const _sunAngle  = (timeOfDay - 0.25) * Math.PI * 2;
+    const _sunHeight = Math.sin(_sunAngle);
+    const _sunX = Math.cos(_sunAngle) * LIGHT_R;
+    const _sunY = _sunHeight          * LIGHT_R;
+    const _sunZ = Math.sin(_sunAngle * 0.4 + 1.0) * 35;
+
+    /* Posição da lua (órbita oposta) */
+    const _moonAngle = (_sunAngle + Math.PI * 1.04);
+    const _moonX = Math.cos(_moonAngle) * LIGHT_R * 0.92;
+    const _moonY = Math.sin(_moonAngle) * LIGHT_R * 0.82;
+    const _moonZ = Math.sin(_moonAngle * 0.35 + 0.8) * 40;
+
+    /* Blend da fonte de luz: dia=sol, noite=lua
+       Quando o sol está abaixo do horizonte, a lua assume a iluminação */
+    const _nightBlend = Math.max(0, Math.min(1, -_sunHeight * 3.0 + 0.25));
+    const _lightBlend = _nightBlend;  // 0=só sol · 1=só lua
+    lightPos[0] = _sunX * (1 - _lightBlend) + _moonX * _lightBlend;
+    lightPos[1] = _sunY * (1 - _lightBlend) + _moonY * _lightBlend;
+    lightPos[2] = _sunZ * (1 - _lightBlend) + _moonZ * _lightBlend;
+
+    /* Luz da lua é mais fraca que a do sol: atenua a difusa à noite
+       via ambient (moonlight dá mais ambient do que difusa direcional) */
+    const _ambientVal = 0.12 + Math.max(0, _sunHeight) * 0.22
+                             + _nightBlend * 0.06;   // leve brilho lunar
+    const _sky        = skyColor(timeOfDay);
+
     /* ── Estado WebGL ─────────────────────────────────────────── */
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(0.53, 0.81, 0.92, 1.0);   // azul céu
+    gl.clearColor(_sky[0], _sky[1], _sky[2], 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
@@ -668,15 +780,30 @@
     gl.uniformMatrix4fv(loc.uProj, false, projMat);
     gl.uniform3fv(loc.uLightPos, lightPos);
     gl.uniform3fv(loc.uEyePos,   camPos);
+    /* Intensidade da fonte: sol=1.0, lua=~0.15 (noite muito mais escura) */
+    const _lightIntensity = 1.0 - _nightBlend * 0.85;
+    gl.uniform1f(loc.uAmbient,        _ambientVal);
+    gl.uniform1f(loc.uLightIntensity, _lightIntensity);
+    gl.uniform3f(loc.uEmissive,       0.0, 0.0, 0.0);
+    gl.uniform1f(loc.uAlpha,          1.0);
+    gl.uniform1f(loc.uSpecular,       1.0);  // default; sobrescrito por objeto
 
     /* Vincula os buffers da única malha (cubo) */
     bindMesh();
 
+    /* ── Sol e Lua ───────────────────────────────────────────── */
+    drawSkyObjects(_sunHeight, _nightBlend, _sunX, _sunY, _sunZ);
+    bindMesh(); // restaura após drawSkyObjects
+
     /* ── Chão ─────────────────────────────────────────────────── */
+    /* Glow urbano noturno: simula reflexo de luzes da cidade no solo */
+    const _gg = _nightBlend * 0.06;
+    gl.uniform3f(loc.uEmissive, _gg * 0.50, _gg * 0.38, _gg * 0.10);
     mat4.identity(modelMat);
     mat4.translate(modelMat, modelMat, [0, -0.15, 0]);
     mat4.scale(modelMat, modelMat, [300, 0.3, 300]);
     drawBox(0.28, 0.58, 0.22);   // verde grama
+    gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
 
     /* ── Ruas (faixas escuras ligeiramente elevadas) ───────────── */
     // Rua Leste–Oeste (eixo X)
@@ -706,20 +833,264 @@
     }
 
     /* ── Prédios ──────────────────────────────────────────────── */
-    for (let i = 0; i < buildings.length; i++) {
-      const b = buildings[i];
-      // b = [x, z, w, d, h, r, g, bl]
-      mat4.identity(modelMat);
-      mat4.translate(modelMat, modelMat, [b[0], b[4] / 2, b[1]]);
-      mat4.scale(modelMat, modelMat, [b[2], b[4], b[3]]);
-      drawBox(b[5], b[6], b[7]);
-    }
+    gl.uniform1f(loc.uSpecular, 0.06);   // prédios: quase matte
+    drawBuildings(_nightBlend);
+    drawBuildingLights(_nightBlend);
+    gl.uniform1f(loc.uSpecular, 1.0);    // restaura
 
     /* ── Drone ────────────────────────────────────────────────── */
     drawDrone();
     drawMission();
 
     requestAnimationFrame(frame);
+  }
+
+  /* ── 11b. Interpolação da cor do céu ───────────────────────── */
+
+  function skyColor(t) {
+    /* keyframes: [timeOfDay, r, g, b]
+     * Evita preto puro e transições abruptas.
+     * A noite é um azul escuro, nunca completamente preto. */
+    const keys = [
+      [0.00, 0.05, 0.07, 0.22],  // meia-noite – azul noturno
+      [0.20, 0.08, 0.11, 0.28],  // antes da aurora – azul profundo
+      [0.24, 0.50, 0.28, 0.18],  // aurora – laranja quente
+      [0.28, 0.72, 0.60, 0.38],  // nascer do sol – dourado
+      [0.38, 0.52, 0.80, 0.92],  // manhã – azul claro
+      [0.50, 0.38, 0.72, 0.98],  // meio-dia – céu vivo
+      [0.62, 0.52, 0.80, 0.92],  // tarde
+      [0.74, 0.82, 0.50, 0.18],  // pôr-do-sol – laranja/vermelho
+      [0.82, 0.45, 0.22, 0.26],  // crepúsculo – roxo-avermelhado
+      [0.90, 0.14, 0.12, 0.32],  // início da noite – azul-arroxeado
+      [1.00, 0.05, 0.07, 0.22],  // meia-noite
+    ];
+    for (let i = 0; i < keys.length - 1; i++) {
+      const k0 = keys[i], k1 = keys[i + 1];
+      if (t >= k0[0] && t <= k1[0]) {
+        const f = (t - k0[0]) / (k1[0] - k0[0]);
+        return [k0[1]+(k1[1]-k0[1])*f, k0[2]+(k1[2]-k0[2])*f, k0[3]+(k1[3]-k0[3])*f];
+      }
+    }
+    return [0.38, 0.72, 0.98];
+  }
+
+  /* ── 11b2. Sol e Lua ────────────────────────────────────────── */
+
+  function drawSkyObjects(sunHeight, nightBlend, sunX, sunY, sunZ) {
+    gl.disable(gl.CULL_FACE);
+    gl.uniform1f(loc.uSpecular, 0.0);  // astros: sem especular
+
+    /* ─ Sol ────────────────────────────────────────────────── */
+    if (sunHeight > -0.10) {
+      const fade = Math.min(1.0, (sunHeight + 0.10) / 0.14);
+      const t  = Math.max(0.0, Math.min(1.0, sunHeight * 3.0));
+      const sr = 1.0;
+      const sg = 0.55 + t * 0.45;
+      const sb = 0.15 + t * 0.85;
+      gl.uniform3f(loc.uEmissive, sr * fade, sg * fade, sb * fade);
+      gl.uniform3f(loc.uColor, sr, sg, sb);
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [sunX, sunY, sunZ]);
+      mat4.scale(modelMat, modelMat, [5.5, 5.5, 5.5]);
+      gl.uniformMatrix4fv(loc.uModel, false, modelMat);
+      mat3.normalFromMat4(normMat3, modelMat);
+      gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+      gl.drawElements(gl.TRIANGLES, IDX_COUNT, gl.UNSIGNED_SHORT, 0);
+    }
+
+    /* ─ Lua ────────────────────────────────────────────────── */
+    if (nightBlend > 0.05) {
+      const moonAngle = (timeOfDay - 0.25 + 0.52) * Math.PI * 2;
+      const mx = Math.cos(moonAngle) * LIGHT_R * 0.92;
+      const my = Math.sin(moonAngle) * LIGHT_R * 0.82;
+      const mz = Math.sin(moonAngle * 0.35 + 0.8) * 40;
+      if (my > 2.0) {
+        const mfade = nightBlend * Math.min(1.0, (my - 2.0) / 14.0);
+        gl.uniform3f(loc.uEmissive, 0.70 * mfade, 0.74 * mfade, 0.82 * mfade);
+        gl.uniform3f(loc.uColor, 0.82, 0.85, 0.90);
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [mx, my, mz]);
+        mat4.scale(modelMat, modelMat, [3.8, 3.8, 3.8]);
+        gl.uniformMatrix4fv(loc.uModel, false, modelMat);
+        mat3.normalFromMat4(normMat3, modelMat);
+        gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+        gl.drawElements(gl.TRIANGLES, IDX_COUNT, gl.UNSIGNED_SHORT, 0);
+      }
+    }
+
+    gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+    gl.uniform1f(loc.uSpecular, 1.0);   // restaura
+    gl.enable(gl.CULL_FACE);
+  }
+
+  /* ── 11c. Prédios com detalhes estruturais ──────────────────── */
+
+  function drawBuildings(nightBlend) {
+    bindMesh();
+    for (let i = 0; i < buildings.length; i++) {
+      const b  = buildings[i];
+      const bx = b[0], bz = b[1], bw = b[2], bd = b[3], bh = b[4];
+      const br = b[5], bg = b[6], bb = b[7];
+
+      /* ── Corpo principal ── */
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [bx, bh / 2, bz]);
+      mat4.scale(modelMat, modelMat, [bw, bh, bd]);
+      drawBox(br, bg, bb);
+
+      /* ── Pódio: base alargada e mais escura ── */
+      if (bh >= 10) {
+        const podH = Math.min(bh * 0.16, 2.8);
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [bx, podH / 2, bz]);
+        mat4.scale(modelMat, modelMat, [bw + 0.28, podH, bd + 0.28]);
+        drawBox(br * 0.76, bg * 0.76, bb * 0.76);
+      }
+
+      /* ── Faixas horizontais (spandrels) entre pavimentos ── */
+      if (bh >= 7) {
+        const numBands = Math.min(Math.floor(bh / 3.2) - 1, 7);
+        if (numBands > 0) {
+          const bandStep = bh / (numBands + 1);
+          const lr = Math.min(br * 1.16, 1.0);
+          const lg = Math.min(bg * 1.16, 1.0);
+          const lb = Math.min(bb * 1.16, 1.0);
+          for (let f = 1; f <= numBands; f++) {
+            mat4.identity(modelMat);
+            mat4.translate(modelMat, modelMat, [bx, f * bandStep, bz]);
+            mat4.scale(modelMat, modelMat, [bw + 0.06, 0.22, bd + 0.06]);
+            drawBox(lr, lg, lb);
+          }
+        }
+      }
+
+      /* ── Estrutura superior ── */
+      if (bh >= 12) {
+        /* Primeiro recuo */
+        const setH = bh * 0.36;
+        const setY = bh + setH / 2;
+        const sw   = bw * 0.76;
+        const sd   = bd * 0.76;
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [bx, setY, bz]);
+        mat4.scale(modelMat, modelMat, [sw, setH, sd]);
+        drawBox(Math.min(br * 1.08, 1.0), Math.min(bg * 1.08, 1.0), Math.min(bb * 1.08, 1.0));
+
+        if (bh >= 20) {
+          /* Segundo recuo */
+          const s2H = setH * 0.50;
+          const s2Y = setY + setH / 2 + s2H / 2;
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [bx, s2Y, bz]);
+          mat4.scale(modelMat, modelMat, [sw * 0.70, s2H, sd * 0.70]);
+          drawBox(Math.min(br * 1.16, 1.0), Math.min(bg * 1.16, 1.0), Math.min(bb * 1.16, 1.0));
+
+          /* Antena */
+          const antBase = s2Y + s2H / 2;
+          const antH    = 2.8 + bh * 0.06;
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [bx, antBase + antH / 2, bz]);
+          mat4.scale(modelMat, modelMat, [0.14, antH, 0.14]);
+          drawBox(0.62, 0.62, 0.66);
+
+          /* Ponta da antena */
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [bx, antBase + antH + 0.14, bz]);
+          mat4.scale(modelMat, modelMat, [0.24, 0.24, 0.24]);
+          drawBox(0.30, 0.10, 0.10);
+
+        } else {
+          /* Bloco de cobertura (médio porte) */
+          const rtH = 1.4;
+          const rtY = setY + setH / 2 + rtH / 2;
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [bx, rtY, bz]);
+          mat4.scale(modelMat, modelMat, [sw * 0.52, rtH, sd * 0.52]);
+          drawBox(Math.min(br * 1.22, 1.0), Math.min(bg * 1.22, 1.0), Math.min(bb * 1.22, 1.0));
+        }
+
+      } else if (bh >= 6) {
+        /* Platibanda */
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [bx, bh + 0.24, bz]);
+        mat4.scale(modelMat, modelMat, [bw + 0.14, 0.46, bd + 0.14]);
+        drawBox(Math.min(br * 1.12, 1.0), Math.min(bg * 1.12, 1.0), Math.min(bb * 1.12, 1.0));
+
+        /* Caixa d'água */
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [bx + bw * 0.20, bh + 1.0, bz - bd * 0.18]);
+        mat4.scale(modelMat, modelMat, [bw * 0.28, 1.3, bd * 0.28]);
+        drawBox(Math.min(br * 0.90, 1.0), Math.min(bg * 0.90, 1.0), Math.min(bb * 0.90, 1.0));
+      }
+
+      /* ── Janelas escuras – polygon offset para nunca sofrer Z-fight com a face ── */
+      const wins = buildingWindowData[i];
+      if (wins) {
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(-2, -4);  // empurra para frente no espaço de depth
+        for (let wi = 0; wi < wins.length; wi++) {
+          const w = wins[wi];
+          if (w.warm === 3) continue;  // beacon tratado separadamente
+          /* Se esta janela será iluminada em drawBuildingLights, não desenhar escura */
+          if (nightBlend >= 0.04 && ((i * 13 + wi * 7) % 100) <= 62) continue;
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [w.px, w.py, w.pz]);
+          mat4.scale(modelMat, modelMat, [w.sx, w.sy, w.sz]);
+          drawBox(0.09, 0.11, 0.17);  // vidro escuro azulado
+        }
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+      }
+    }
+  }
+
+  /* ── 11d. Luzes de janelas (noturnas) ───────────────────────── */
+
+  /* Padrão 3 piscadas rápidas depois pausa longa (~4s de ciclo) */
+  function beaconBlink(t) {
+    const c = t % 4.2;
+    if (c < 0.18)                       return 1.0;  // piscada 1
+    if (c < 0.45)                       return 0.0;
+    if (c > 0.45 && c < 0.63)           return 1.0;  // piscada 2
+    if (c < 0.90)                       return 0.0;
+    if (c > 0.90 && c < 1.08)           return 1.0;  // piscada 3
+    return 0.0;                                       // pausa longa
+  }
+
+  function drawBuildingLights(nightBlend) {
+    if (nightBlend < 0.04) return;
+    bindMesh();
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(-2, -4);
+    for (let bi = 0; bi < buildingWindowData.length; bi++) {
+      const wins = buildingWindowData[bi];
+      for (let wi = 0; wi < wins.length; wi++) {
+        const w = wins[wi];
+        /* ~62 % das janelas ligadas (determinístico); beacon sempre */
+        if (w.warm !== 3 && ((bi * 13 + wi * 7) % 100) > 62) continue;
+
+        const em = nightBlend * 0.90;
+        let er, eg, eb;
+        if (w.warm === 0) {
+          er = 1.00 * em; eg = 0.78 * em; eb = 0.26 * em; // quente
+        } else if (w.warm === 1) {
+          er = 0.95 * em; eg = 0.90 * em; eb = 0.65 * em; // neutro
+        } else if (w.warm === 2) {
+          er = 0.50 * em; eg = 0.68 * em; eb = 1.00 * em; // frio
+        } else {
+          /* Beacon: 3 piscadas rápidas + pausa (sempre visível, não só à noite) */
+          const blink = beaconBlink(frameTime);
+          er = 1.00 * blink; eg = 0.08 * blink; eb = 0.08 * blink;
+        }
+        gl.uniform3f(loc.uEmissive, er, eg, eb);
+        mat4.identity(modelMat);
+        /* Posição exata – sem offset pois a janela escura foi omitida (sem Z-fight) */
+        mat4.translate(modelMat, modelMat, [w.px, w.py, w.pz]);
+        mat4.scale(modelMat, modelMat, [w.sx, w.sy, w.sz]);
+        drawBox(0.09, 0.11, 0.17);
+      }
+    }
+    gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
   }
 
   /* ── 12. Desenho do drone (corpo + cúpula + hélices) ──────── */
