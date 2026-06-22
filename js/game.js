@@ -720,61 +720,152 @@
   const treeInstances = buildTreeInstances();
   addTreesNearPark(treeInstances);
 
-  /* ── 7b. Sistema de colisões (AABB para prédios, esfera para árvores) ── */
+  /* ── 7b. Sistema de colisões (AABB no X/Z + volume em Y) ── */
+  const BUILDING_Y_MARGIN = 1.8;
+  const TREE_Y_MARGIN = 8.0;
+
+  function intersectsSquareAABB(px, pz, pHalf, ox, oz, oHalfX, oHalfZ) {
+    return (
+      Math.abs(px - ox) <= (pHalf + oHalfX) &&
+      Math.abs(pz - oz) <= (pHalf + oHalfZ)
+    );
+  }
+
+  function overlapsVertical(py, playerHalfHeight, objectTopY) {
+    const pMinY = py - playerHalfHeight;
+    const pMaxY = py + playerHalfHeight;
+    const oMinY = 0.0;
+    const oMaxY = objectTopY;
+    return pMaxY >= oMinY && pMinY <= oMaxY;
+  }
+
+  function overlapsYRange(py, playerHalfHeight, minY, maxY) {
+    const pMinY = py - playerHalfHeight;
+    const pMaxY = py + playerHalfHeight;
+    return pMaxY >= minY && pMinY <= maxY;
+  }
+
+  function intersectsPrism(px, pz, py, playerHalf, playerHalfHeight, cx, cz, halfX, halfZ, minY, maxY) {
+    if (!overlapsYRange(py, playerHalfHeight, minY, maxY)) return false;
+    return intersectsSquareAABB(px, pz, playerHalf, cx, cz, halfX, halfZ);
+  }
   
-  function checkBuildingCollision(px, pz, py, radius) {
-    // Só colide se estiver perto do chão (altura < 8 unidades)
-    if (py > 8.0) return null;
-    
+  function checkBuildingCollision(px, pz, py, playerHalf, playerHalfHeight) {
     for (let i = 0; i < buildings.length; i++) {
       const b = buildings[i];
       const bx = b[0], bz = b[1];
       const bw = b[2] * 0.5, bd = b[3] * 0.5;  // half-width, half-depth
-      
-      // AABB com margem de colisão (raio da câmera)
-      const closestX = Math.max(bx - bw, Math.min(px, bx + bw));
-      const closestZ = Math.max(bz - bd, Math.min(pz, bz + bd));
-      const dx = px - closestX;
-      const dz = pz - closestZ;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      
-      if (dist < radius) return b;  // Colisão encontrada
-    }
-    return null;
-  }
+      const bh = b[4];  // altura do prédio
 
-  function checkTreeCollision(px, pz, py, radius) {
-    for (let i = 0; i < treeInstances.length; i++) {
-      const t = treeInstances[i];
-      const treeRadius = t.scale * 0.8;  // Raio horizontal da árvore
-      const treeHeight = t.scale * 11.0;  // Altura aproximada da árvore escalada
-      
-      // Verifica colisão horizontal
-      const dx = px - t.x;
-      const dz = pz - t.z;
-      const hdist = Math.sqrt(dx * dx + dz * dz);
-      
-      if (hdist < radius + treeRadius) {
-        // Se passou no teste horizontal, verifica altura
-        if (py < treeHeight) {
-          return t;  // Colisão encontrada
+      // Corta cedo quando o jogador está muito acima da estrutura total.
+      let topY = bh + BUILDING_Y_MARGIN;
+      if (bh >= 12) {
+        const setH = bh * 0.36;
+        topY = bh + setH;
+        if (bh >= 20) {
+          topY = bh + setH + setH * 0.50;
+        } else {
+          topY += 1.4;
+        }
+      } else if (bh >= 6) {
+        topY = bh + 1.65;
+      }
+      topY += BUILDING_Y_MARGIN;
+      if (!overlapsVertical(py, playerHalfHeight, topY)) continue;
+
+      // Corpo principal: base do prédio
+      if (intersectsPrism(px, pz, py, playerHalf, playerHalfHeight, bx, bz, bw, bd, 0.0, bh + BUILDING_Y_MARGIN)) {
+        return b;
+      }
+
+      // Pódio: mais largo perto da base
+      if (bh >= 10) {
+        const podH = Math.min(bh * 0.16, 2.8);
+        if (intersectsPrism(px, pz, py, playerHalf, playerHalfHeight, bx, bz, bw + 0.14, bd + 0.14, 0.0, podH + BUILDING_Y_MARGIN)) {
+          return b;
+        }
+      }
+
+      // Estrutura superior afunilada (recuos), espelhando drawBuildings
+      if (bh >= 12) {
+        const setH = bh * 0.36;
+        const sw = bw * 0.76;
+        const sd = bd * 0.76;
+        const setMinY = bh;
+        const setMaxY = bh + setH;
+        if (intersectsPrism(px, pz, py, playerHalf, playerHalfHeight, bx, bz, sw, sd, setMinY, setMaxY + BUILDING_Y_MARGIN)) {
+          return b;
+        }
+
+        if (bh >= 20) {
+          const s2H = setH * 0.50;
+          const s2MinY = setMaxY;
+          const s2MaxY = setMaxY + s2H;
+          if (intersectsPrism(px, pz, py, playerHalf, playerHalfHeight, bx, bz, sw * 0.70, sd * 0.70, s2MinY, s2MaxY + BUILDING_Y_MARGIN)) {
+            return b;
+          }
+        } else {
+          const rtH = 1.4;
+          const rtMinY = setMaxY;
+          const rtMaxY = setMaxY + rtH;
+          if (intersectsPrism(px, pz, py, playerHalf, playerHalfHeight, bx, bz, sw * 0.52, sd * 0.52, rtMinY, rtMaxY + BUILDING_Y_MARGIN)) {
+            return b;
+          }
+        }
+      } else if (bh >= 6) {
+        // Prédios médios: platibanda + caixa d'água
+        if (intersectsPrism(px, pz, py, playerHalf, playerHalfHeight, bx, bz, bw + 0.07, bd + 0.07, bh + 0.01, bh + 0.47 + BUILDING_Y_MARGIN)) {
+          return b;
+        }
+        if (intersectsPrism(px, pz, py, playerHalf, playerHalfHeight, bx + bw * 0.20, bz - bd * 0.18, bw * 0.14, bd * 0.14, bh + 0.35, bh + 1.65 + BUILDING_Y_MARGIN)) {
+          return b;
         }
       }
     }
     return null;
   }
 
-  function resolveCollision(posArray, oldPos, radius) {
-    // Tenta resolver a colisão: se houver colisão, volta para posição anterior
-    const collBuilding = checkBuildingCollision(posArray[0], posArray[2], posArray[1], radius);
-    const collTree = checkTreeCollision(posArray[0], posArray[2], posArray[1], radius);
-    
-    if (collBuilding || collTree) {
-      posArray[0] = oldPos[0];
-      posArray[2] = oldPos[2];
-      return true;  // Houve colisão
+  function checkTreeCollision(px, pz, py, playerHalf, playerHalfHeight) {
+    for (let i = 0; i < treeInstances.length; i++) {
+      const t = treeInstances[i];
+      const treeHalf = t.scale * 0.8;  // metade do quadrado horizontal da árvore
+      const treeHeight = t.scale * 11.0;  // Altura aproximada da árvore escalada
+
+      if (!overlapsVertical(py, playerHalfHeight, treeHeight + TREE_Y_MARGIN)) continue;
+
+      if (intersectsSquareAABB(px, pz, playerHalf, t.x, t.z, treeHalf, treeHalf)) {
+        return t;
+      }
     }
-    return false;
+    return null;
+  }
+
+  function hasWorldCollision(px, pz, py, playerHalf, playerHalfHeight) {
+    return (
+      checkBuildingCollision(px, pz, py, playerHalf, playerHalfHeight) ||
+      checkTreeCollision(px, pz, py, playerHalf, playerHalfHeight)
+    );
+  }
+
+  function resolveCollision(posArray, oldPos, playerHalf, playerHalfHeight) {
+    // Resolve por eixo para evitar travada e melhorar deslizamento em paredes.
+    const py = posArray[1];
+    const targetX = posArray[0];
+    const targetZ = posArray[2];
+    let hitX = false;
+    let hitZ = false;
+
+    if (hasWorldCollision(targetX, oldPos[2], py, playerHalf, playerHalfHeight)) {
+      posArray[0] = oldPos[0];
+      hitX = true;
+    }
+
+    if (hasWorldCollision(posArray[0], targetZ, py, playerHalf, playerHalfHeight)) {
+      posArray[2] = oldPos[2];
+      hitZ = true;
+    }
+
+    return { hitX: hitX, hitZ: hitZ, hitAny: hitX || hitZ };
   }
 
   function buildCityProps() {
@@ -1087,12 +1178,11 @@
     if (drone.pos[1] > 150)  { drone.pos[1] = 150; drone.vel[1] = 0; drone.boostVel[1] = 0; }
     
     /* ── Verifica colisões com prédios e árvores ─────────────── */
-    const PLAYER_RADIUS = 1.2;  // Raio de colisão do jogador
-    const hadCollision = resolveCollision(drone.pos, oldDronePos, PLAYER_RADIUS);
-    if (hadCollision) {
-      drone.vel[0] = 0;
-      drone.vel[2] = 0;
-    }
+    const PLAYER_HALF_SIZE = 1.3;
+    const PLAYER_HALF_HEIGHT = 1.7;
+    const collision = resolveCollision(drone.pos, oldDronePos, PLAYER_HALF_SIZE, PLAYER_HALF_HEIGHT);
+    if (collision.hitX) drone.vel[0] = 0;
+    if (collision.hitZ) drone.vel[2] = 0;
     
     updateMission(dt);
     /* ── Tilt visual suavizado (baseado na velocidade real) ─────── */
