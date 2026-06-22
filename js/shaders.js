@@ -35,6 +35,11 @@ uniform float uAmbient;        /* nível de luz ambiente (varia dia/noite)*/
 uniform float uLightIntensity; /* intensidade da fonte (1=sol, ~0.15=lua) */
 uniform vec3  uEmissive;       /* cor emissiva – ignora iluminação       */
 uniform float uSpecular;       /* escala do especular (0=matte, 1=full)  */
+uniform float uTreeMode;       /* 1=ativa cor tronco/copa para árvores    */
+uniform float uTreeTrunkTop;   /* altura Y do fim do tronco no mundo      */
+uniform vec3  uFogColor;       /* cor da névoa atmosférica                */
+uniform float uFogNear;        /* início da névoa (distância da câmera)   */
+uniform float uFogFar;         /* fim da névoa                             */
 
 varying vec3 vNormal;
 varying vec3 vFragPos;
@@ -53,7 +58,20 @@ void main() {
 
   float d     = diff * uLightIntensity;
   float s     = spec * uLightIntensity;
-  vec3 color = (uAmbient + d) * uColor + s * vec3(1.0) + uEmissive;
+  vec3 baseColor = uColor;
+  if (uTreeMode > 0.5) {
+    float trunkMix = smoothstep(uTreeTrunkTop - 0.90, uTreeTrunkTop + 3.20, vFragPos.y);
+    trunkMix = trunkMix * trunkMix;
+    vec3 trunkColor = vec3(0.28, 0.16, 0.07);
+    baseColor = mix(trunkColor, uColor, trunkMix);
+  }
+  vec3 color = (uAmbient + d) * baseColor + s * vec3(1.0) + uEmissive;
+
+  float distToEye = length(uEyePos - vFragPos);
+  float fogF = clamp((distToEye - uFogNear) / max(0.001, (uFogFar - uFogNear)), 0.0, 1.0);
+  fogF = fogF * fogF * (3.0 - 2.0 * fogF);  // smoothstep manual
+  color = mix(color, uFogColor, fogF);
+
   gl_FragColor  = vec4(color, uAlpha);
 }
 `;

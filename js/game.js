@@ -74,10 +74,20 @@
     uLightIntensity : gl.getUniformLocation(prog, 'uLightIntensity'),
     uEmissive       : gl.getUniformLocation(prog, 'uEmissive'),
     uSpecular       : gl.getUniformLocation(prog, 'uSpecular'),
+    uTreeMode       : gl.getUniformLocation(prog, 'uTreeMode'),
+    uTreeTrunkTop   : gl.getUniformLocation(prog, 'uTreeTrunkTop'),
+    uFogColor       : gl.getUniformLocation(prog, 'uFogColor'),
+    uFogNear        : gl.getUniformLocation(prog, 'uFogNear'),
+    uFogFar         : gl.getUniformLocation(prog, 'uFogFar'),
   };
   gl.uniform1f(gl.getUniformLocation(prog, 'uAlpha'), 1.0); // default opaco
   gl.uniform1f(loc.uAmbient,  0.25);                        // default dia
-    gl.uniform1f(loc.uLightIntensity, 1.0);                   // default dia pleno
+  gl.uniform1f(loc.uLightIntensity, 1.0);                   // default dia pleno
+  gl.uniform1f(loc.uTreeMode, 0.0);                         // default: modo normal
+  gl.uniform1f(loc.uTreeTrunkTop, 0.0);
+  gl.uniform3f(loc.uFogColor, 0.48, 0.66, 0.78);
+  gl.uniform1f(loc.uFogNear, 55.0);
+  gl.uniform1f(loc.uFogFar, 180.0);
 
   /* ── 4. Buffers do cubo compartilhado ───────────────────────── */
 
@@ -119,6 +129,12 @@
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, torIdxBuf);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, torusGeo.indices, gl.STATIC_DRAW);
   const TOR_IDX_COUNT = torusGeo.indices.length;
+
+  /* ── Árvore OBJ (instanciada) ────────────────────────────────── */
+  let treeMesh = null;
+  loadOBJ('js/objects/Lowpoly_tree_sample.obj')
+    .then(parsed => { treeMesh = uploadOBJMesh(gl, parsed); })
+    .catch(err => { console.error('Falha ao carregar árvore OBJ:', err); });
 
   /* Ativa os atributos e aponta para os VBOs (feito uma vez,
      pois só existe um tipo de malha – o cubo). */
@@ -373,6 +389,15 @@
 
   let mission = buildMissionState(0);
 
+  const ROAD_HALF_MAIN = 3.0;
+  const ROAD_HALF_SEC  = 2.5;
+  const SIDEWALK_W_MAIN = 2.2;
+  const SIDEWALK_W_SEC  = 1.8;
+  const PARK_CX = 24;
+  const PARK_CZ = 24;
+  const PARK_HW = 9.5;
+  const PARK_HZ = 7.5;
+
   /* ── 7. Layout da cidade ─────────────────────────────────────── */
   /*
    * Cada entrada: [x, z, largura, profundidade, altura, r, g, b]
@@ -472,6 +497,360 @@
     [ 72,   0, 9, 5, 22, 0.24, 0.34, 0.52],
     [-72,   0, 5, 9, 14, 0.70, 0.64, 0.50],
   ];
+
+  const BUILDING_SCALE_XZ = 1.18;
+  const BUILDING_SCALE_Y  = 1.45;
+  for (let i = 0; i < buildings.length; i++) {
+    buildings[i][2] *= BUILDING_SCALE_XZ;
+    buildings[i][3] *= BUILDING_SCALE_XZ;
+    buildings[i][4] *= BUILDING_SCALE_Y;
+  }
+
+  function addMoreBuildings(count) {
+    let seed = 0xD00DFEED;
+    function rand() {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    }
+
+    const palette = [
+      [0.58, 0.56, 0.54], [0.26, 0.38, 0.55], [0.70, 0.64, 0.50],
+      [0.30, 0.36, 0.52], [0.82, 0.80, 0.78], [0.58, 0.40, 0.32],
+      [0.28, 0.34, 0.50], [0.62, 0.44, 0.34],
+    ];
+
+    for (let i = 0; i < count; i++) {
+      const w = 3.6 + rand() * 6.6;
+      const d = 3.6 + rand() * 6.6;
+      const h = 8.0 + rand() * 24.0;
+      const c = palette[(rand() * palette.length) | 0];
+
+      // Posição provisória: a redistribuição posterior move para área verde.
+      const x = (rand() * 2 - 1) * 118;
+      const z = (rand() * 2 - 1) * 118;
+      buildings.push([x, z, w, d, h, c[0], c[1], c[2]]);
+    }
+  }
+
+  addMoreBuildings(74);
+
+  function redistributeBuildingsOnGrass() {
+    let seed = 0xA1C3E5;
+    function rand() {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    }
+
+    function intersectsTrafficArea(x, z, w, d) {
+      const hx = w * 0.5 + 0.5;
+      const hz = d * 0.5 + 0.5;
+
+      const mainBand = ROAD_HALF_MAIN + SIDEWALK_W_MAIN;
+      const secBand  = ROAD_HALF_SEC + SIDEWALK_W_SEC;
+
+      if (Math.abs(x) < hx + mainBand) return true;
+      if (Math.abs(z) < hz + mainBand) return true;
+
+      if (Math.abs(x - 40) < hx + secBand) return true;
+      if (Math.abs(x + 40) < hx + secBand) return true;
+      if (Math.abs(z - 40) < hz + secBand) return true;
+      if (Math.abs(z + 40) < hz + secBand) return true;
+
+      if (Math.abs(x - PARK_CX) < hx + PARK_HW + 1.2 &&
+          Math.abs(z - PARK_CZ) < hz + PARK_HZ + 1.2) return true;
+
+      return false;
+    }
+
+    function overlapsPlaced(placed, x, z, w, d) {
+      const gap = 1.5;
+      for (let i = 0; i < placed.length; i++) {
+        const p = placed[i];
+        const dx = Math.abs(x - p.x);
+        const dz = Math.abs(z - p.z);
+        if (dx < (w + p.w) * 0.5 + gap && dz < (d + p.d) * 0.5 + gap) return true;
+      }
+      return false;
+    }
+
+    const placed = [];
+    for (let i = 0; i < buildings.length; i++) {
+      const b = buildings[i];
+      const w = b[2], d = b[3];
+      let done = false;
+
+      for (let tries = 0; tries < 180; tries++) {
+        const x = (rand() * 2 - 1) * 122;
+        const z = (rand() * 2 - 1) * 122;
+
+        if (intersectsTrafficArea(x, z, w, d)) continue;
+        if (overlapsPlaced(placed, x, z, w, d)) continue;
+
+        b[0] = x;
+        b[1] = z;
+        placed.push({ x, z, w, d });
+        done = true;
+        break;
+      }
+
+      if (!done) {
+        let x = b[0], z = b[1];
+        const mainBand = ROAD_HALF_MAIN + SIDEWALK_W_MAIN;
+        const secBand  = ROAD_HALF_SEC + SIDEWALK_W_SEC;
+        const hx = w * 0.5 + 0.8;
+        const hz = d * 0.5 + 0.8;
+
+        if (Math.abs(x) < hx + mainBand) x = Math.sign(x || 1) * (hx + mainBand);
+        if (Math.abs(z) < hz + mainBand) z = Math.sign(z || 1) * (hz + mainBand);
+        if (Math.abs(x - 40) < hx + secBand) x = 40 + Math.sign(x - 40 || 1) * (hx + secBand);
+        if (Math.abs(x + 40) < hx + secBand) x = -40 + Math.sign(x + 40 || 1) * (hx + secBand);
+        if (Math.abs(z - 40) < hz + secBand) z = 40 + Math.sign(z - 40 || 1) * (hz + secBand);
+        if (Math.abs(z + 40) < hz + secBand) z = -40 + Math.sign(z + 40 || 1) * (hz + secBand);
+
+        b[0] = Math.max(-122, Math.min(122, x));
+        b[1] = Math.max(-122, Math.min(122, z));
+        placed.push({ x: b[0], z: b[1], w, d });
+      }
+    }
+  }
+
+  redistributeBuildingsOnGrass();
+
+  function buildTreeInstances() {
+    const out = [];
+    let seed = 0xC0FFEE;
+
+    function rand() {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    }
+
+    function isInRoad(x, z) {
+      if (Math.abs(z) < 4.2) return true;
+      if (Math.abs(x) < 4.2) return true;
+      if (Math.abs(z - 40) < 3.6 || Math.abs(z + 40) < 3.6) return true;
+      if (Math.abs(x - 40) < 3.6 || Math.abs(x + 40) < 3.6) return true;
+      return false;
+    }
+
+    function hitsBuilding(x, z) {
+      const pad = 1.7;
+      for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i];
+        const minX = b[0] - b[2] / 2 - pad;
+        const maxX = b[0] + b[2] / 2 + pad;
+        const minZ = b[1] - b[3] / 2 - pad;
+        const maxZ = b[1] + b[3] / 2 + pad;
+        if (x > minX && x < maxX && z > minZ && z < maxZ) return true;
+      }
+      return false;
+    }
+
+    function hitsMissionZones(x, z) {
+      for (let mi = 0; mi < MISSION_DEFS.length; mi++) {
+        const m = MISSION_DEFS[mi];
+        const pdx = x - m.pickup.x;
+        const pdz = z - m.pickup.z;
+        const ddx = x - m.delivery.x;
+        const ddz = z - m.delivery.z;
+        if (Math.sqrt(pdx * pdx + pdz * pdz) < m.pickup.r + 1.8) return true;
+        if (Math.sqrt(ddx * ddx + ddz * ddz) < m.delivery.r + 1.8) return true;
+      }
+      return false;
+    }
+
+    function hitsPark(x, z) {
+      return Math.abs(x - PARK_CX) < PARK_HW + 1.2 &&
+             Math.abs(z - PARK_CZ) < PARK_HZ + 1.2;
+    }
+
+    for (let tries = 0; tries < 9000 && out.length < 185; tries++) {
+      const x = (rand() * 2 - 1) * 125;
+      const z = (rand() * 2 - 1) * 125;
+
+      if (isInRoad(x, z)) continue;
+      if (hitsBuilding(x, z)) continue;
+      if (hitsMissionZones(x, z)) continue;
+      if (hitsPark(x, z)) continue;
+
+      let tooClose = false;
+      for (let i = 0; i < out.length; i++) {
+        const dx = x - out[i].x;
+        const dz = z - out[i].z;
+        if (dx * dx + dz * dz < 20) {
+          tooClose = true;
+          break;
+        }
+      }
+      if (tooClose) continue;
+
+      const scale = 0.11 + rand() * 0.13;
+      out.push({
+        x,
+        z,
+        scale,
+        rotY: rand() * Math.PI * 2,
+        tint: 0.90 + rand() * 0.25,
+      });
+    }
+
+    return out;
+  }
+
+  function addTreesNearPark(instances) {
+    const ring = [
+      [-7.8, -5.4], [0.0, -5.8], [7.8, -5.4],
+      [-8.2,  0.0],                 [8.2,  0.0],
+      [-7.8,  5.4], [0.0,  5.8], [7.8,  5.4],
+      [-3.6, -6.6], [3.6, -6.6], [-3.6, 6.6], [3.6, 6.6],
+    ];
+
+    for (let i = 0; i < ring.length; i++) {
+      const off = ring[i];
+      instances.push({
+        x: PARK_CX + off[0],
+        z: PARK_CZ + off[1],
+        scale: 0.10 + (i % 3) * 0.015,
+        rotY: (i * 0.83) % (Math.PI * 2),
+        tint: 0.95 + (i % 4) * 0.05,
+      });
+    }
+  }
+
+  const treeInstances = buildTreeInstances();
+  addTreesNearPark(treeInstances);
+
+  /* ── 7b. Sistema de colisões (AABB para prédios, esfera para árvores) ── */
+  
+  function checkBuildingCollision(px, pz, py, radius) {
+    // Só colide se estiver perto do chão (altura < 8 unidades)
+    if (py > 8.0) return null;
+    
+    for (let i = 0; i < buildings.length; i++) {
+      const b = buildings[i];
+      const bx = b[0], bz = b[1];
+      const bw = b[2] * 0.5, bd = b[3] * 0.5;  // half-width, half-depth
+      
+      // AABB com margem de colisão (raio da câmera)
+      const closestX = Math.max(bx - bw, Math.min(px, bx + bw));
+      const closestZ = Math.max(bz - bd, Math.min(pz, bz + bd));
+      const dx = px - closestX;
+      const dz = pz - closestZ;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      
+      if (dist < radius) return b;  // Colisão encontrada
+    }
+    return null;
+  }
+
+  function checkTreeCollision(px, pz, py, radius) {
+    for (let i = 0; i < treeInstances.length; i++) {
+      const t = treeInstances[i];
+      const treeRadius = t.scale * 0.8;  // Raio horizontal da árvore
+      const treeHeight = t.scale * 11.0;  // Altura aproximada da árvore escalada
+      
+      // Verifica colisão horizontal
+      const dx = px - t.x;
+      const dz = pz - t.z;
+      const hdist = Math.sqrt(dx * dx + dz * dz);
+      
+      if (hdist < radius + treeRadius) {
+        // Se passou no teste horizontal, verifica altura
+        if (py < treeHeight) {
+          return t;  // Colisão encontrada
+        }
+      }
+    }
+    return null;
+  }
+
+  function resolveCollision(posArray, oldPos, radius) {
+    // Tenta resolver a colisão: se houver colisão, volta para posição anterior
+    const collBuilding = checkBuildingCollision(posArray[0], posArray[2], posArray[1], radius);
+    const collTree = checkTreeCollision(posArray[0], posArray[2], posArray[1], radius);
+    
+    if (collBuilding || collTree) {
+      posArray[0] = oldPos[0];
+      posArray[2] = oldPos[2];
+      return true;  // Houve colisão
+    }
+    return false;
+  }
+
+  function buildCityProps() {
+    const props = [];
+    const mainSide = ROAD_HALF_MAIN + SIDEWALK_W_MAIN * 0.52;
+    const secSide  = ROAD_HALF_SEC + SIDEWALK_W_SEC * 0.52;
+
+    function pushLamp(x, z, rotY) {
+      props.push({ type: 'lamp', x, z, rotY });
+    }
+    function pushHydrant(x, z) {
+      props.push({ type: 'hydrant', x, z, rotY: 0 });
+    }
+    function pushUtility(x, z, rotY, sx, sz) {
+      props.push({ type: 'utility', x, z, rotY, sx, sz });
+    }
+
+    // Postes nas calçadas das vias centrais.
+    for (let k = -120; k <= 120; k += 24) {
+      if (Math.abs(k) < 10) continue;
+      if (Math.abs(k - PARK_CX) < PARK_HW + 3.0) continue;
+      pushLamp(k,  mainSide, Math.PI * 0.5);
+      pushLamp(k, -mainSide, -Math.PI * 0.5);
+      pushLamp( mainSide, k, Math.PI);
+      pushLamp(-mainSide, k, 0.0);
+    }
+
+    // Postes em vias secundárias (x/z=+/-40).
+    for (let k = -120; k <= 120; k += 30) {
+      if (Math.abs(k) < 8) continue;
+      pushLamp(k,  40 + secSide, Math.PI * 0.5);
+      pushLamp(k,  40 - secSide, -Math.PI * 0.5);
+      pushLamp(k, -40 + secSide, Math.PI * 0.5);
+      pushLamp(k, -40 - secSide, -Math.PI * 0.5);
+
+      pushLamp( 40 + secSide, k, Math.PI);
+      pushLamp( 40 - secSide, k, 0.0);
+      pushLamp(-40 + secSide, k, Math.PI);
+      pushLamp(-40 - secSide, k, 0.0);
+    }
+
+    // Hidrantes em cantos de cruzamentos e pontos de quadra.
+    const hydrants = [
+      [  8,  8], [ -8,  8], [  8, -8], [ -8, -8],
+      [ 32,  8], [ 48,  8], [ 32, -8], [ 48, -8],
+      [-32,  8], [-48,  8], [-32, -8], [-48, -8],
+      [  8, 32], [ -8, 32], [  8, 48], [ -8, 48],
+      [  8,-32], [ -8,-32], [  8,-48], [ -8,-48],
+    ];
+    for (let i = 0; i < hydrants.length; i++) pushHydrant(hydrants[i][0], hydrants[i][1]);
+
+    // Estruturas utilitárias (caixas elétricas / quiosques técnicos).
+    pushUtility( 54,  18, 0.0, 2.4, 1.6);
+    pushUtility( 54, -18, 0.0, 2.2, 1.5);
+    pushUtility(-54,  18, 0.0, 2.4, 1.6);
+    pushUtility(-54, -18, 0.0, 2.2, 1.5);
+    pushUtility( 18,  54, Math.PI * 0.5, 2.5, 1.7);
+    pushUtility(-18,  54, Math.PI * 0.5, 2.3, 1.5);
+    pushUtility( 18, -54, Math.PI * 0.5, 2.5, 1.7);
+    pushUtility(-18, -54, Math.PI * 0.5, 2.3, 1.5);
+
+    return props;
+  }
+
+  const cityProps = buildCityProps();
+
+  // LOD simples por distância para aliviar draw calls/geometria por frame.
+  const BUILDING_SIMPLIFY_DIST2 = 95 * 95;
+  const BUILDING_CULL_DIST2     = 170 * 170;
+  const WINDOW_LIGHT_CULL_DIST2 = 115 * 115;
+  const TREE_FULL_DIST2         = 80 * 80;
+  const TREE_HALF_DIST2         = 130 * 130;
+  const TREE_CULL_DIST2         = 180 * 180;
+  const PROP_CULL_DIST2         = 155 * 155;
+  const PROP_SIMPLIFY_DIST2     = 95 * 95;
+  const PROP_SPARSIFY_DIST2     = 120 * 120;
 
   /* ── Dados de janelas pré-computados por prédio ─────────────────
    * Cada janela: { px, py, pz, sx, sy, sz, warm }
@@ -699,12 +1078,22 @@
     drone.vel[1] = Math.max(-drone.VSPEED, Math.min(drone.VSPEED, drone.vel[1]));
 
     /* ── Aplica velocidade à posição ──────────────────────────── */
+    const oldDronePos = [drone.pos[0], drone.pos[1], drone.pos[2]];
     drone.pos[0] += (drone.vel[0] + drone.boostVel[0]) * dt;
     drone.pos[1] += (drone.vel[1] + drone.boostVel[1]) * dt;
     drone.pos[2] += (drone.vel[2] + drone.boostVel[2]) * dt;
 
     if (drone.pos[1] < 0.3) { drone.pos[1] = 0.3; drone.vel[1] = 0; }
     if (drone.pos[1] > 150)  { drone.pos[1] = 150; drone.vel[1] = 0; drone.boostVel[1] = 0; }
+    
+    /* ── Verifica colisões com prédios e árvores ─────────────── */
+    const PLAYER_RADIUS = 1.2;  // Raio de colisão do jogador
+    const hadCollision = resolveCollision(drone.pos, oldDronePos, PLAYER_RADIUS);
+    if (hadCollision) {
+      drone.vel[0] = 0;
+      drone.vel[2] = 0;
+    }
+    
     updateMission(dt);
     /* ── Tilt visual suavizado (baseado na velocidade real) ─────── */
     // Projeta a velocidade horizontal nos eixos local do drone
@@ -766,6 +1155,8 @@
     const _ambientVal = 0.12 + Math.max(0, _sunHeight) * 0.22
                              + _nightBlend * 0.06;   // leve brilho lunar
     const _sky        = skyColor(timeOfDay);
+    const _fogNear    = 48.0 - _nightBlend * 6.0;
+    const _fogFar     = 170.0 - _nightBlend * 12.0;
 
     /* ── Estado WebGL ─────────────────────────────────────────── */
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -784,6 +1175,13 @@
     const _lightIntensity = 1.0 - _nightBlend * 0.85;
     gl.uniform1f(loc.uAmbient,        _ambientVal);
     gl.uniform1f(loc.uLightIntensity, _lightIntensity);
+    gl.uniform3f(loc.uFogColor,
+      _sky[0] * 0.82 + 0.06,
+      _sky[1] * 0.82 + 0.06,
+      _sky[2] * 0.84 + 0.06
+    );
+    gl.uniform1f(loc.uFogNear, _fogNear);
+    gl.uniform1f(loc.uFogFar,  _fogFar);
     gl.uniform3f(loc.uEmissive,       0.0, 0.0, 0.0);
     gl.uniform1f(loc.uAlpha,          1.0);
     gl.uniform1f(loc.uSpecular,       1.0);  // default; sobrescrito por objeto
@@ -812,11 +1210,27 @@
     mat4.scale(modelMat, modelMat, [300, 0.04, 6]);
     drawBox(0.22, 0.22, 0.22);
 
+    // Calçadas da via Leste–Oeste central
+    for (const zSide of [ROAD_HALF_MAIN + SIDEWALK_W_MAIN * 0.5, -ROAD_HALF_MAIN - SIDEWALK_W_MAIN * 0.5]) {
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [0, 0.028, zSide]);
+      mat4.scale(modelMat, modelMat, [300, 0.05, SIDEWALK_W_MAIN]);
+      drawBox(0.58, 0.58, 0.56);
+    }
+
     // Rua Norte–Sul (eixo Z)
     mat4.identity(modelMat);
     mat4.translate(modelMat, modelMat, [0, 0.02, 0]);
     mat4.scale(modelMat, modelMat, [6, 0.04, 300]);
     drawBox(0.22, 0.22, 0.22);
+
+    // Calçadas da via Norte–Sul central
+    for (const xSide of [ROAD_HALF_MAIN + SIDEWALK_W_MAIN * 0.5, -ROAD_HALF_MAIN - SIDEWALK_W_MAIN * 0.5]) {
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [xSide, 0.028, 0]);
+      mat4.scale(modelMat, modelMat, [SIDEWALK_W_MAIN, 0.05, 300]);
+      drawBox(0.58, 0.58, 0.56);
+    }
 
     // Ruas secundárias (z=±40 e x=±40)
     for (const zOff of [-40, 40]) {
@@ -824,18 +1238,43 @@
       mat4.translate(modelMat, modelMat, [0, 0.02, zOff]);
       mat4.scale(modelMat, modelMat, [300, 0.04, 5]);
       drawBox(0.22, 0.22, 0.22);
+
+      for (const side of [1, -1]) {
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [0, 0.028, zOff + side * (ROAD_HALF_SEC + SIDEWALK_W_SEC * 0.5)]);
+        mat4.scale(modelMat, modelMat, [300, 0.05, SIDEWALK_W_SEC]);
+        drawBox(0.56, 0.56, 0.54);
+      }
     }
     for (const xOff of [-40, 40]) {
       mat4.identity(modelMat);
       mat4.translate(modelMat, modelMat, [xOff, 0.02, 0]);
       mat4.scale(modelMat, modelMat, [5, 0.04, 300]);
       drawBox(0.22, 0.22, 0.22);
+
+      for (const side of [1, -1]) {
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [xOff + side * (ROAD_HALF_SEC + SIDEWALK_W_SEC * 0.5), 0.028, 0]);
+        mat4.scale(modelMat, modelMat, [SIDEWALK_W_SEC, 0.05, 300]);
+        drawBox(0.56, 0.56, 0.54);
+      }
     }
+
+    /* ── Pracinha (água + bancos) ─────────────────────────────── */
+    drawPark(_nightBlend);
+
+    /* ── Mobiliário urbano (postes/hidrantes/estruturas) ─────── */
+    drawCityProps(_nightBlend);
 
     /* ── Prédios ──────────────────────────────────────────────── */
     gl.uniform1f(loc.uSpecular, 0.06);   // prédios: quase matte
     drawBuildings(_nightBlend);
     drawBuildingLights(_nightBlend);
+
+    /* ── Árvores (OBJ) ─────────────────────────────────────────── */
+    drawTrees(_nightBlend);
+    bindMesh();
+
     gl.uniform1f(loc.uSpecular, 1.0);    // restaura
 
     /* ── Drone ────────────────────────────────────────────────── */
@@ -931,6 +1370,12 @@
       const b  = buildings[i];
       const bx = b[0], bz = b[1], bw = b[2], bd = b[3], bh = b[4];
       const br = b[5], bg = b[6], bb = b[7];
+      const dx = bx - camPos[0];
+      const dz = bz - camPos[2];
+      const d2 = dx * dx + dz * dz;
+
+      if (d2 > BUILDING_CULL_DIST2) continue;
+      const simplified = d2 > BUILDING_SIMPLIFY_DIST2;
 
       /* ── Corpo principal ── */
       mat4.identity(modelMat);
@@ -939,7 +1384,7 @@
       drawBox(br, bg, bb);
 
       /* ── Pódio: base alargada e mais escura ── */
-      if (bh >= 10) {
+      if (!simplified && bh >= 10) {
         const podH = Math.min(bh * 0.16, 2.8);
         mat4.identity(modelMat);
         mat4.translate(modelMat, modelMat, [bx, podH / 2, bz]);
@@ -948,7 +1393,7 @@
       }
 
       /* ── Faixas horizontais (spandrels) entre pavimentos ── */
-      if (bh >= 7) {
+      if (!simplified && bh >= 7) {
         const numBands = Math.min(Math.floor(bh / 3.2) - 1, 7);
         if (numBands > 0) {
           const bandStep = bh / (numBands + 1);
@@ -965,7 +1410,7 @@
       }
 
       /* ── Estrutura superior ── */
-      if (bh >= 12) {
+      if (!simplified && bh >= 12) {
         /* Primeiro recuo */
         const setH = bh * 0.36;
         const setY = bh + setH / 2;
@@ -1009,7 +1454,7 @@
           drawBox(Math.min(br * 1.22, 1.0), Math.min(bg * 1.22, 1.0), Math.min(bb * 1.22, 1.0));
         }
 
-      } else if (bh >= 6) {
+      } else if (!simplified && bh >= 6) {
         /* Platibanda */
         mat4.identity(modelMat);
         mat4.translate(modelMat, modelMat, [bx, bh + 0.24, bz]);
@@ -1025,7 +1470,7 @@
 
       /* ── Janelas escuras – polygon offset para nunca sofrer Z-fight com a face ── */
       const wins = buildingWindowData[i];
-      if (wins) {
+      if (!simplified && wins) {
         gl.enable(gl.POLYGON_OFFSET_FILL);
         gl.polygonOffset(-2, -4);  // empurra para frente no espaço de depth
         for (let wi = 0; wi < wins.length; wi++) {
@@ -1062,6 +1507,13 @@
     gl.enable(gl.POLYGON_OFFSET_FILL);
     gl.polygonOffset(-2, -4);
     for (let bi = 0; bi < buildingWindowData.length; bi++) {
+      const b = buildings[bi];
+      if (b) {
+        const dx = b[0] - camPos[0];
+        const dz = b[1] - camPos[2];
+        if (dx * dx + dz * dz > WINDOW_LIGHT_CULL_DIST2) continue;
+      }
+
       const wins = buildingWindowData[bi];
       for (let wi = 0; wi < wins.length; wi++) {
         const w = wins[wi];
@@ -1143,6 +1595,221 @@
       mat4.translate(modelMat, modelMat, PROP_LOCAL[i]);
       mat4.scale(modelMat, modelMat, [0.38, 0.10, 0.38]);
       drawBox(0.90, 0.15, 0.15);
+    }
+  }
+
+  function drawTrees(nightBlend) {
+    if (!treeMesh || treeInstances.length === 0) return;
+
+    bindOBJMesh(gl, loc, treeMesh);
+    gl.uniform1f(loc.uSpecular, 0.08);
+    gl.uniform1f(loc.uTreeMode, 1.0);
+
+    for (let i = 0; i < treeInstances.length; i++) {
+      const t = treeInstances[i];
+      const dx = t.x - camPos[0];
+      const dz = t.z - camPos[2];
+      const d2 = dx * dx + dz * dz;
+
+      if (d2 > TREE_CULL_DIST2) continue;
+      if (d2 > TREE_HALF_DIST2 && (i % 2) !== 0) continue;
+      if (d2 > TREE_FULL_DIST2 && d2 <= TREE_HALF_DIST2 && (i % 3) === 1) continue;
+
+      const s = t.scale;
+      const e = nightBlend * 0.02;
+      const baseY = 0.75 * s;
+
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [t.x, baseY, t.z]);
+      mat4.rotateY(modelMat, modelMat, t.rotY);
+      mat4.scale(modelMat, modelMat, [s, s, s]);
+
+      gl.uniformMatrix4fv(loc.uModel, false, modelMat);
+      mat3.normalFromMat4(normMat3, modelMat);
+      gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+      gl.uniform1f(loc.uTreeTrunkTop, baseY + 7.6 * s);
+      gl.uniform3f(loc.uEmissive, e * 0.20, e * 0.32, e * 0.08);
+      gl.uniform3f(loc.uColor, 0.17 * t.tint, 0.45 * t.tint, 0.17 * t.tint);
+      drawOBJMesh(gl, treeMesh);
+    }
+
+    gl.uniform1f(loc.uTreeMode, 0.0);
+    gl.uniform1f(loc.uTreeTrunkTop, 0.0);
+    gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+    gl.uniform1f(loc.uSpecular, 1.0);
+  }
+
+  function drawPark(nightBlend) {
+    // Base da praça (piso claro)
+    mat4.identity(modelMat);
+    mat4.translate(modelMat, modelMat, [PARK_CX, 0.03, PARK_CZ]);
+    mat4.scale(modelMat, modelMat, [PARK_HW * 2, 0.06, PARK_HZ * 2]);
+    drawBox(0.68, 0.68, 0.64);
+
+    // Faixa de grama interna
+    mat4.identity(modelMat);
+    mat4.translate(modelMat, modelMat, [PARK_CX, 0.055, PARK_CZ]);
+    mat4.scale(modelMat, modelMat, [PARK_HW * 1.7, 0.03, PARK_HZ * 1.6]);
+    drawBox(0.30, 0.52, 0.24);
+
+    // Espelho d'água central
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.uniform1f(loc.uAlpha, 0.78);
+    gl.uniform3f(loc.uEmissive,
+      0.03 + nightBlend * 0.05,
+      0.07 + nightBlend * 0.06,
+      0.10 + nightBlend * 0.08
+    );
+    mat4.identity(modelMat);
+    mat4.translate(modelMat, modelMat, [PARK_CX, 0.095, PARK_CZ]);
+    mat4.scale(modelMat, modelMat, [PARK_HW * 0.9, 0.04, PARK_HZ * 0.55]);
+    drawBox(0.22, 0.45, 0.62);
+    gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+    gl.uniform1f(loc.uAlpha, 1.0);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+
+    // Bancos simples (2 de cada lado da água)
+    const benches = [
+      [PARK_CX - 4.2, PARK_CZ - 2.6, 0.0],
+      [PARK_CX - 4.2, PARK_CZ + 2.6, 0.0],
+      [PARK_CX + 4.2, PARK_CZ - 2.6, Math.PI],
+      [PARK_CX + 4.2, PARK_CZ + 2.6, Math.PI],
+    ];
+
+    for (let i = 0; i < benches.length; i++) {
+      const b = benches[i];
+      const bx = b[0], bz = b[1], by = b[2];
+
+      // assento
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [bx, 0.22, bz]);
+      mat4.rotateY(modelMat, modelMat, by);
+      mat4.scale(modelMat, modelMat, [1.7, 0.12, 0.42]);
+      drawBox(0.43, 0.30, 0.18);
+
+      // encosto
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [bx, 0.47, bz + (by === 0.0 ? -0.18 : 0.18)]);
+      mat4.rotateY(modelMat, modelMat, by);
+      mat4.scale(modelMat, modelMat, [1.7, 0.34, 0.12]);
+      drawBox(0.40, 0.28, 0.16);
+
+      // pés
+      for (const lx of [-0.6, 0.6]) {
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [bx + lx, 0.10, bz]);
+        mat4.scale(modelMat, modelMat, [0.10, 0.20, 0.10]);
+        drawBox(0.24, 0.24, 0.26);
+      }
+    }
+
+    // Bordas baixas decorativas
+    for (const sz of [-1, 1]) {
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [PARK_CX, 0.12, PARK_CZ + sz * (PARK_HZ - 0.35)]);
+      mat4.scale(modelMat, modelMat, [PARK_HW * 1.95, 0.18, 0.18]);
+      drawBox(0.55, 0.55, 0.52);
+    }
+    for (const sx of [-1, 1]) {
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [PARK_CX + sx * (PARK_HW - 0.35), 0.12, PARK_CZ]);
+      mat4.scale(modelMat, modelMat, [0.18, 0.18, PARK_HZ * 1.95]);
+      drawBox(0.55, 0.55, 0.52);
+    }
+  }
+
+  function drawCityProps(nightBlend) {
+    for (let i = 0; i < cityProps.length; i++) {
+      const p = cityProps[i];
+      const dx = p.x - camPos[0];
+      const dz = p.z - camPos[2];
+      const d2 = dx * dx + dz * dz;
+      if (d2 > PROP_CULL_DIST2) continue;
+      if (d2 > PROP_SPARSIFY_DIST2 && (i % 2) !== 0) continue;
+
+      const simplified = d2 > PROP_SIMPLIFY_DIST2;
+
+      if (p.type === 'lamp') {
+        // Base
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [p.x, 0.10, p.z]);
+        mat4.scale(modelMat, modelMat, [0.26, 0.20, 0.26]);
+        drawBox(0.26, 0.26, 0.28);
+
+        // Poste
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [p.x, 2.0, p.z]);
+        mat4.scale(modelMat, modelMat, [0.08, 3.8, 0.08]);
+        drawBox(0.34, 0.34, 0.36);
+
+        if (!simplified) {
+          // Braço
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [p.x, 3.86, p.z]);
+          mat4.rotateY(modelMat, modelMat, p.rotY);
+          mat4.translate(modelMat, modelMat, [0.38, 0.0, 0.0]);
+          mat4.scale(modelMat, modelMat, [0.76, 0.06, 0.06]);
+          drawBox(0.36, 0.36, 0.38);
+        }
+
+        // Luminária
+        const lx = p.x + Math.cos(p.rotY) * 0.78;
+        const lz = p.z - Math.sin(p.rotY) * 0.78;
+        const le = nightBlend * (simplified ? 0.30 : 0.52);
+        gl.uniform3f(loc.uEmissive, le * 1.0, le * 0.84, le * 0.52);
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [lx, 3.72, lz]);
+        mat4.scale(modelMat, modelMat, simplified ? [0.12, 0.10, 0.12] : [0.16, 0.12, 0.16]);
+        drawBox(0.96, 0.84, 0.52);
+
+        gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+      } else if (p.type === 'hydrant') {
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [p.x, 0.16, p.z]);
+        mat4.scale(modelMat, modelMat, [0.20, 0.32, 0.20]);
+        drawBox(0.78, 0.08, 0.08);
+
+        if (!simplified) {
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [p.x, 0.42, p.z]);
+          mat4.scale(modelMat, modelMat, [0.12, 0.20, 0.12]);
+          drawBox(0.82, 0.12, 0.12);
+
+          for (const s of [-1, 1]) {
+            mat4.identity(modelMat);
+            mat4.translate(modelMat, modelMat, [p.x + s * 0.14, 0.25, p.z]);
+            mat4.scale(modelMat, modelMat, [0.08, 0.10, 0.08]);
+            drawBox(0.74, 0.08, 0.08);
+          }
+        }
+      } else if (p.type === 'utility') {
+        const sx = p.sx || 2.2;
+        const sz = p.sz || 1.4;
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [p.x, 0.65, p.z]);
+        mat4.rotateY(modelMat, modelMat, p.rotY || 0.0);
+        mat4.scale(modelMat, modelMat, [sx, 1.3, sz]);
+        drawBox(0.50, 0.52, 0.56);
+
+        if (!simplified) {
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [p.x, 1.35, p.z]);
+          mat4.rotateY(modelMat, modelMat, p.rotY || 0.0);
+          mat4.scale(modelMat, modelMat, [sx * 1.05, 0.10, sz * 1.05]);
+          drawBox(0.42, 0.44, 0.48);
+
+          // Porta/painel frontal
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [p.x, 0.65, p.z]);
+          mat4.rotateY(modelMat, modelMat, p.rotY || 0.0);
+          mat4.translate(modelMat, modelMat, [0.0, 0.0, sz * 0.50 + 0.03]);
+          mat4.scale(modelMat, modelMat, [sx * 0.62, 0.85, 0.04]);
+          drawBox(0.30, 0.33, 0.37);
+        }
+      }
     }
   }
   /* ── 13. Missão: lógica e renderização ───────────────────────────── */
