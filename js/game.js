@@ -187,6 +187,7 @@
   function setPaused(val) {
     paused = val;
     hudPause.style.display = paused ? 'flex' : 'none';
+    minimap.setOpacity(paused);
     if (paused && document.pointerLockElement === canvas)
       document.exitPointerLock();
     if (!paused)
@@ -1051,6 +1052,9 @@
   const mTimerEl  = document.getElementById('m-timer');
   const mScoreRow = document.getElementById('m-score-row');
 
+  /* ── Minimapa ─────────────────────────────────────────────── */
+  const minimap = new MiniMap(200, 200);
+
   /* Começa pausado (aguarda o primeiro clique) */
   paused = true;
   hudPause.style.display = 'flex';
@@ -1370,6 +1374,9 @@
     /* ── Drone ────────────────────────────────────────────────── */
     drawDrone();
     drawMission();
+
+    /* ── Minimapa ──────────────────────────────────────────────── */
+    minimap.draw(drone.pos, mission);
 
     requestAnimationFrame(frame);
   }
