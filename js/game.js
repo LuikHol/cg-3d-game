@@ -139,6 +139,12 @@
   loadOBJ('js/objects/Lowpoly_tree_sample.obj')
     .then(parsed => { treeMesh = uploadOBJMesh(gl, parsed); })
     .catch(err   => { console.error('Falha ao carregar árvore OBJ:', err); });
+  
+  /* Carro OBJ (carregado de forma assíncrona) */
+  let carMesh  = null;
+  loadOBJ('js/objects/Car.obj')
+    .then(parsed => { carMesh = uploadOBJMesh(gl, parsed); })
+    .catch(err   => { console.error('Falha ao carregar carro OBJ:', err); });
 
   /* Bind helpers – reativam os VBOs corretos para cada tipo de malha */
   function bindMesh() {
@@ -447,6 +453,7 @@
       bindMesh, bindDisc, bindTorus,
       frameTime,
       get treeMesh()  { return treeMesh;  },  // lazy: ainda null após init
+      get carMesh()   { return carMesh;   },  // lazy: ainda null após init
       get timeOfDay() { return timeOfDay; },  // mutable: Renderer.drawSkyObjects precisa
     };
 
@@ -458,6 +465,7 @@
     Renderer.drawGroundAndRoads(rc, _nightBlend);
     City.drawPark(rc, frameTime, _nightBlend);
     City.drawCityProps(rc, _nightBlend);
+    City.drawCars(rc);
 
     gl.uniform1f(loc.uSpecular, 0.06);   // prédios: quase matte
     City.drawBuildings(rc, _nightBlend);

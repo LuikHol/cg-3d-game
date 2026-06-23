@@ -404,6 +404,40 @@ const City = (() => {
   }
   const cityProps = buildCityProps();
 
+  function buildCarInstances() {
+    const out = [];
+    const COLORS = [
+      [0.72, 0.72, 0.74], [0.60, 0.12, 0.12], [0.15, 0.25, 0.56],
+      [0.78, 0.74, 0.60], [0.20, 0.38, 0.22], [0.65, 0.55, 0.12],
+      [0.26, 0.26, 0.28], [0.66, 0.30, 0.14],
+    ];
+    let ci = 0;
+    function car(x, z, rotY) {
+      const c = COLORS[ci++ % COLORS.length];
+      out.push({ x, z, rotY, r: c[0], g: c[1], b: c[2] });
+    }
+    /* Via E-O principal (z ≈ 0)  */
+    for (const x of [-65, -22, 16, 65]) car(x,  2.2,  Math.PI / 2);
+    for (const x of [-55, -14, 26, 72]) car(x, -2.2, -Math.PI / 2);
+    /* Via N-S principal (x ≈ 0)  */
+    for (const z of [-65, -22, 16, 65]) car( 2.2, z,           0);
+    for (const z of [-55, -14, 26, 72]) car(-2.2, z,     Math.PI);
+    /* Via secundária E-O z = +40 */
+    for (const x of [-65, -22, 12, 65]) car(x,  42.2,  Math.PI / 2);
+    for (const x of [-55, -12, 26, 70]) car(x,  37.8, -Math.PI / 2);
+    /* Via secundária E-O z = −40 */
+    for (const x of [-65, -22, 12, 65]) car(x, -37.8,  Math.PI / 2);
+    for (const x of [-55, -12, 26, 70]) car(x, -42.2, -Math.PI / 2);
+    /* Via secundária N-S x = +40 */
+    for (const z of [-65, -22, 16, 65]) car( 42.2, z,           0);
+    for (const z of [-55, -14, 26, 70]) car( 37.8, z,     Math.PI);
+    /* Via secundária N-S x = −40 */
+    for (const z of [-65, -22, 16, 65]) car(-37.8, z,           0);
+    for (const z of [-55, -14, 26, 70]) car(-42.2, z,     Math.PI);
+    return out;
+  }
+  const carInstances = buildCarInstances();
+
   /* ── LOD ──────────────────────────────────────────────────────── */
   const BUILDING_SIMPLIFY_DIST2 = 95 * 95;
   const BUILDING_CULL_DIST2     = 170 * 170;
@@ -414,6 +448,7 @@ const City = (() => {
   const PROP_CULL_DIST2         = 155 * 155;
   const PROP_SIMPLIFY_DIST2     = 95 * 95;
   const PROP_SPARSIFY_DIST2     = 120 * 120;
+  const CAR_CULL_DIST2  = 130 * 130;
 
   /* ── Dados de janelas ─────────────────────────────────────────── */
   const buildingWindowData = (function () {
@@ -723,6 +758,67 @@ const City = (() => {
     }
   }
 
+  function drawCars(rc) {
+    const { gl, loc, modelMat, normMat3, camPos } = rc;
+    const cm = rc.carMesh;
+    if (!cm) return;
+
+    /* Propriedades por material do Car.mtl: [r, g, b, specular, emR, emG, emB]
+       null = usa a cor da instância (lataria com cor variável)              */
+    const MAT = {
+      Body   : null,
+      Black  : [0.01, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0],
+      Bottom : [0.02, 0.02, 0.02, 0.0, 0.0, 0.0, 0.0],
+      Bumpers: [0.06, 0.06, 0.06, 0.0, 0.0, 0.0, 0.0],
+      Lights : [1.0,  1.0,  0.9,  0.0, 0.3, 0.3, 0.2],
+      Tires  : [0.05, 0.05, 0.05, 0.3, 0.0, 0.0, 0.0],
+      Wheels : [0.49, 0.49, 0.49, 0.6, 0.0, 0.0, 0.0],
+      Window : [0.04, 0.06, 0.10, 0.8, 0.0, 0.0, 0.0],
+    };
+
+    const segs = (cm.segments && cm.segments.length > 0) ? cm.segments : null;
+
+    for (const c of carInstances) {
+      const dx = c.x - camPos[0], dz = c.z - camPos[2];
+      if (dx*dx + dz*dz > CAR_CULL_DIST2) continue;
+
+      bindOBJMesh(gl, loc, cm);
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [c.x, 0, c.z]);
+      mat4.rotateY(modelMat, modelMat, c.rotY);
+      gl.uniformMatrix4fv(loc.uModel, false, modelMat);
+      mat3.normalFromMat4(normMat3, modelMat);
+      gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+      gl.uniform1f(loc.uAlpha, 1.0);
+
+      if (segs) {
+        for (const seg of segs) {
+          const m = Object.prototype.hasOwnProperty.call(MAT, seg.material) ? MAT[seg.material] : null;
+          if (m === null) {
+            gl.uniform3f(loc.uColor, c.r, c.g, c.b);
+            gl.uniform1f(loc.uSpecular, 0.5);
+            gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+          } else {
+            gl.uniform3f(loc.uColor, m[0], m[1], m[2]);
+            gl.uniform1f(loc.uSpecular, m[3]);
+            gl.uniform3f(loc.uEmissive, m[4], m[5], m[6]);
+          }
+          gl.drawArrays(gl.TRIANGLES, seg.start, seg.count);
+        }
+      } else {
+        /* Fallback sem segmentos */
+        gl.uniform3f(loc.uColor, c.r, c.g, c.b);
+        gl.uniform1f(loc.uSpecular, 0.0);
+        gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+        drawOBJMesh(gl, cm);
+      }
+    }
+
+    gl.uniform1f(loc.uSpecular, 0.0);
+    gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+    rc.bindMesh();
+  }
+
   /* ── Helper interno (evita repetir gl calls) ─────────────────── */
   function _drawBox(rc, r, g, b) {
     const { gl, loc, modelMat, normMat3, IDX_COUNT } = rc;
@@ -756,5 +852,6 @@ const City = (() => {
     drawTrees,
     drawPark,
     drawCityProps,
+    drawCars,
   };
 })();
