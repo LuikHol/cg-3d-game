@@ -39,6 +39,11 @@ function parseOBJ(text) {
   const outNorm = [];
   const outUV   = [];
 
+  /* Rastreamento de segmentos por material (usemtl) */
+  const rawSegments = [];
+  let segMaterial   = null;
+  let segStart      = 0;
+
   const lines = text.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
@@ -128,11 +133,16 @@ function parseOBJ(text) {
     /* Todos os outros tokens (o, g, s, usemtl, mtllib) são ignorados */
   }
 
+  /* Flush segmento final */
+  const _lastCnt = outPos.length / 3 - segStart;
+  if (_lastCnt > 0) rawSegments.push({ material: segMaterial, start: segStart, count: _lastCnt });
+
   return {
-    positions : new Float32Array(outPos),
-    normals   : new Float32Array(outNorm),
-    uvs       : new Float32Array(outUV),
-    count     : outPos.length / 3,
+    positions   : new Float32Array(outPos),
+    normals     : new Float32Array(outNorm),
+    uvs         : new Float32Array(outUV),
+    count       : outPos.length / 3,
+    rawSegments,
   };
 }
 
@@ -229,7 +239,7 @@ function uploadOBJMesh(gl, parsed) {
   gl.bindBuffer(gl.ARRAY_BUFFER, uvVBO);
   gl.bufferData(gl.ARRAY_BUFFER, parsed.uvs, gl.STATIC_DRAW);
 
-  return { posVBO, normVBO, uvVBO, count: parsed.count };
+  return { posVBO, normVBO, uvVBO, count: parsed.count, segments: parsed.rawSegments || [] };
 }
 
 /* ── bindOBJMesh ──────────────────────────────────────────────────
