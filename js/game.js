@@ -146,6 +146,12 @@
     .then(parsed => { carMesh = uploadOBJMesh(gl, parsed); })
     .catch(err   => { console.error('Falha ao carregar carro OBJ:', err); });
 
+  /* Seta OBJ (carregada de forma assíncrona) */
+  window._arrowMesh = null;
+  loadOBJ('js/objects/Arrow.obj')
+    .then(parsed => { window._arrowMesh = uploadOBJMesh(gl, parsed); })
+    .catch(err   => { console.error('Falha ao carregar seta OBJ:', err); });
+
   /* Bind helpers – reativam os VBOs corretos para cada tipo de malha */
   function bindMesh() {
     gl.bindBuffer(gl.ARRAY_BUFFER, posVBO);
