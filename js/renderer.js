@@ -495,7 +495,7 @@ const Renderer = (() => {
       /* Hélices animadas (se existirem no OBJ) */
       if (window._droneHelices) {
         const t = rc.frameTime;
-        const spinSpeed = (Math.PI * 2) / 0.20833;
+        const spinSpeed = (Math.PI * 2) / 0.145;
         const spinA = -(t * spinSpeed) % (Math.PI * 2);
         const spinB =  (t * spinSpeed) % (Math.PI * 2);
           // offsets dos braços em espaço local (calculados do drone.obj)

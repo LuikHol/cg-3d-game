@@ -448,7 +448,7 @@ const City = (() => {
       [ 18,-58, 0.9], [ -18,-58, 2.2], [ 34, 34, 0.4], [ -34, 34, 2.6],
       [ 34,-34, 1.7], [ -34,-34, 0.8],
     ];
-    for (let i = 0; i < trashSpots.length; i++) {
+    for (let i = 0; i < trashSpots.length; i += 2) {
       const t = trashSpots[i];
       pushTrash(t[0], t[1], t[2], 0.0065 + (i % 3) * 0.0010);
     }
