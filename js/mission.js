@@ -93,6 +93,98 @@ const Mission = (() => {
   let _missionIdx = 0;
   let _mission    = null;
 
+  /* ── Diálogo estilo visual novel (aceite da missão) ──────────── */
+  const PICKUP_DIALOGUES = [
+    { name: 'Maka',  title: 'Moradora', line: 'Oi piloto! Quero que entregue essa minha encomenda com cuidado, por favor.' },
+    { name: 'Diego', title: 'Cliente',  line: 'Valeu por aceitar! Essa entrega é urgente, preciso dela ainda hoje.' },
+    { name: 'Lia',   title: 'Cliente',  line: 'Confio em você. Leve essa caixa direitinho e me avise quando chegar.' },
+    { name: 'Ravi',  title: 'Comerciante', line: 'Essa encomenda não pode atrasar. Conta contigo para uma entrega perfeita.' },
+    { name: 'Nina',  title: 'Cliente VIP', line: 'Perfeito, piloto! Quero essa encomenda entregue sem nenhum arranhão.' },
+  ];
+
+  let _vn = null;
+  function _ensureVN() {
+    if (_vn) return _vn;
+
+    const layer = document.createElement('div');
+    layer.id = 'vn-layer';
+    layer.innerHTML = `
+      <div id="vn-character">
+        <img id="vn-portrait" src="js/textures/maka.png" alt="Personagem da missão">
+      </div>
+      <div id="vn-box">
+        <div id="vn-name"></div>
+        <div id="vn-text"></div>
+        <div id="vn-next" style="display:none"><span class="arrow">▶</span><span>Continuar</span></div>
+      </div>
+    `;
+    document.body.appendChild(layer);
+
+    _vn = {
+      layer,
+      nameEl: layer.querySelector('#vn-name'),
+      textEl: layer.querySelector('#vn-text'),
+      continueBtn: layer.querySelector('#vn-next'),
+      text: '',
+      visibleChars: 0,
+      cps: 44,
+      active: false,
+      onContinue: null,
+    };
+
+    _vn.continueBtn.addEventListener('click', ev => {
+      ev.stopPropagation();
+      if (!_vn.active) return;
+      if (_vn.visibleChars < _vn.text.length) {
+        _vn.visibleChars = _vn.text.length;
+        _vn.textEl.textContent = _vn.text;
+        _vn.continueBtn.style.display = 'inline-block';
+        return;
+      }
+      _vn.active = false;
+      _vn.layer.classList.remove('vn-show');
+      _vn.continueBtn.style.display = 'none';
+      document.body.classList.remove('dialogue-open');
+      const cb = _vn.onContinue;
+      _vn.onContinue = null;
+      if (cb) cb();
+
+      // Devolve o controle normal do mouse ao jogo após fechar o diálogo.
+      const canvas = document.getElementById('canvas');
+      if (canvas && document.pointerLockElement !== canvas) {
+        canvas.requestPointerLock();
+      }
+    });
+
+    return _vn;
+  }
+
+  function _showPickupDialogue(missionIdx, onContinue) {
+    const vn = _ensureVN();
+    const data = PICKUP_DIALOGUES[missionIdx % PICKUP_DIALOGUES.length];
+    vn.text = data.line;
+    vn.visibleChars = 0;
+    vn.active = true;
+    vn.onContinue = onContinue || null;
+    vn.nameEl.textContent = data.name + ' • ' + data.title;
+    vn.textEl.textContent = '';
+    vn.continueBtn.style.display = 'none';
+    vn.layer.classList.add('vn-show');
+    document.body.classList.add('dialogue-open');
+  }
+
+  function _updateVN(dt) {
+    if (!_vn || !_vn.active) return;
+
+    if (_vn.visibleChars < _vn.text.length) {
+      _vn.visibleChars = Math.min(_vn.text.length, _vn.visibleChars + _vn.cps * dt);
+      _vn.textEl.textContent = _vn.text.slice(0, _vn.visibleChars | 0);
+      return;
+    }
+
+    _vn.continueBtn.style.display = 'inline-block';
+  }
+
   /* ── HUD (lazy) ───────────────────────────────────────────────── */
   let _hud = null;
   function getHud() {
@@ -152,6 +244,7 @@ const Mission = (() => {
     _computeNormals(def);
     return {
       phase        : 'pickup',
+      _acceptPending: false,
       pickupTimer  : 0,
       deliveryTimer: 0,
       currentHoop  : 0,
@@ -209,12 +302,18 @@ const Mission = (() => {
     if (_mission.phase === 'pickup') {
       const dx = pos[0] - def.pickup.x, dz = pos[2] - def.pickup.z;
       const inZone = Math.sqrt(dx*dx + dz*dz) < def.pickup.r && pos[1] > 0.5 && pos[1] < 12;
-      if (inZone) {
+      if (_mission._acceptPending) {
+        _mission.pickupTimer = FILL_TIME;
+      } else if (inZone) {
         _mission.pickupTimer = Math.min(_mission.pickupTimer + dt, FILL_TIME);
         if (_mission.pickupTimer >= FILL_TIME) {
-          _mission.phase = 'flying';
-          _mission.missionTimer = 0;
-          _mission.hoopTimer    = 0;
+          _mission._acceptPending = true;
+          _showPickupDialogue(_missionIdx, () => {
+            _mission._acceptPending = false;
+            _mission.phase = 'flying';
+            _mission.missionTimer = 0;
+            _mission.hoopTimer = 0;
+          });
         }
       } else {
         _mission.pickupTimer = Math.max(0, _mission.pickupTimer - dt * 2);
@@ -254,7 +353,9 @@ const Mission = (() => {
 
     switch (_mission.phase) {
       case 'pickup':
-        hud.phase.textContent    = `Missão ${current}/${total} — Paire sobre a zona verde`;
+        hud.phase.textContent    = _mission._acceptPending
+          ? `Missão ${current}/${total} — Clique em Continuar para iniciar`
+          : `Missão ${current}/${total} — Paire sobre a zona verde`;
         hud.hoops.style.display   = 'none';
         hud.scoreRow.style.display = 'none';
         hud.barWrap.style.display  = 'block';
@@ -309,6 +410,8 @@ const Mission = (() => {
         break;
       }
     }
+
+    _updateVN(dt);
   }
 
   /* ── Helpers de draw internos ─────────────────────────────────── */
@@ -521,6 +624,10 @@ const Mission = (() => {
   }
 
   /* ── API pública ──────────────────────────────────────────────── */
+  function isDialogueBlocking() {
+    return !!(_mission && _mission._acceptPending);
+  }
+
   return {
     MISSION_DEFS,
     get state()      { return _mission; },
@@ -536,6 +643,8 @@ const Mission = (() => {
 
     /** Atualiza lógica de missão. Chame a cada frame com dt em segundos. */
     update,
+
+    isDialogueBlocking,
 
     /** Renderiza zonas, auras, aros e seta. Chame a cada frame.
      *  rc = { gl, loc, modelMat, normMat3, IDX_COUNT, DISC_COUNT,

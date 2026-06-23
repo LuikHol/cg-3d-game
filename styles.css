@@ -1,0 +1,255 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #000;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+}
+
+body.dialogue-open {
+  cursor: default;
+}
+
+#canvas { display: block; }
+
+/* HUD overlay */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  color: #fff;
+  text-shadow: 1px 1px 3px #000;
+}
+
+#controls {
+  background: rgba(0, 0, 0, 0.50);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+#controls kbd {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: inherit;
+}
+
+/* Overlay de pausa */
+#hud-pause {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  gap: 12px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#hud-pause .pause-title {
+  font-size: 36px;
+  font-weight: bold;
+  letter-spacing: 6px;
+}
+
+#hud-pause .pause-hint {
+  font-size: 15px;
+  opacity: 0.80;
+}
+
+#hud-pause .sensitivity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+#hud-pause .pause-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+#pause-controls-btn {
+  pointer-events: auto;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.20);
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#pause-controls-btn:hover {
+  background: rgba(255,255,255,0.16);
+}
+
+#controls-panel {
+  margin-top: 8px;
+  pointer-events: auto;
+}
+
+#controls-panel.hidden {
+  display: none;
+}
+
+#hud-pause #controls {
+  min-width: 260px;
+  text-align: left;
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+}
+
+#hud-pause input[type=range] {
+  width: 160px;
+  accent-color: #4af;
+}
+
+/* Visual novel dialogue */
+#vn-layer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  pointer-events: auto;
+  z-index: 36;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.20s ease, transform 0.20s ease;
+}
+
+#vn-layer.vn-show {
+  opacity: 1;
+  transform: translateY(0px);
+}
+
+#vn-character {
+  width: min(44vw, 420px);
+  height: min(78vh, 620px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  overflow: hidden;
+  pointer-events: none;
+  filter: drop-shadow(0 14px 22px rgba(0,0,0,0.55));
+}
+
+#vn-portrait {
+  width: auto;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: auto;
+  transform: translateX(-8px);
+}
+
+#vn-box {
+  position: relative;
+  flex: 1;
+  min-height: 140px;
+  border-radius: 14px 0 0 0;
+  border-top: 1px solid rgba(255,255,255,0.28);
+  border-left: 1px solid rgba(255,255,255,0.28);
+  background: linear-gradient(180deg, rgba(7,10,16,0.94), rgba(6,8,13,0.90));
+  box-shadow: 0 -8px 26px rgba(0,0,0,0.42);
+  color: #eef5ff;
+  padding: 12px 56px 12px 14px;
+  text-shadow: none;
+}
+
+#vn-name {
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  color: #87ceff;
+  margin-bottom: 6px;
+}
+
+#vn-text {
+  font-size: 18px;
+  line-height: 1.42;
+  min-height: 76px;
+}
+
+#vn-next {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255,255,255,0.28);
+  border-radius: 18px;
+  background: rgba(35,50,85,0.34);
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  user-select: none;
+}
+
+#vn-next .arrow {
+  font-size: 14px;
+  animation: vnPulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes vnPulse {
+  from { transform: translateX(0px); }
+  to { transform: translateX(5px); }
+}
+
+#vn-next:hover {
+  background: rgba(58,82,135,0.46);
+}
+
+@media (max-width: 900px) {
+  #vn-character {
+    width: min(42vw, 280px);
+    height: min(64vh, 420px);
+  }
+
+  #vn-box {
+    min-height: 124px;
+  }
+}
+
+/* HUD de missão */
+#mission-hud {
+  position: absolute;
+  top: 55px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.50);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  min-width: 210px;
+  line-height: 1.8;
+}
+
+#mission-hud .bar-bg {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  height: 8px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+#mission-hud .bar-fill {
+  height: 8px;
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.06s linear;
+}

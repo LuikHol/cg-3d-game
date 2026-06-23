@@ -240,6 +240,7 @@
 
   let mouseLocked = false;
   let paused      = false;
+  let _unlockingForDialogue = false;
 
   function setPaused(val) {
     paused = val;
@@ -253,7 +254,8 @@
 
   document.addEventListener('pointerlockchange', () => {
     mouseLocked = document.pointerLockElement === canvas;
-    if (!mouseLocked && !paused) setPaused(true);
+    if (!mouseLocked && !paused && !_unlockingForDialogue) setPaused(true);
+    _unlockingForDialogue = false;
   });
 
   window.addEventListener('keydown', e => { if (e.code === 'KeyP') setPaused(!paused); });
@@ -298,8 +300,9 @@
   let   timeOfDay = 0.38;       // 0=meia-noite · 0.25=nascer · 0.5=meio-dia
   const DAY_SPEED = 1 / 480;   // ciclo completo em ~8 min reais
 
-  const hudPos   = document.getElementById('hud-pos');
   const hudPause = document.getElementById('hud-pause');
+  const pauseControlsBtn = document.getElementById('pause-controls-btn');
+  const controlsPanel = document.getElementById('controls-panel');
 
   const sensSlider = document.getElementById('sens-slider');
   const sensValue  = document.getElementById('sens-value');
@@ -315,7 +318,20 @@
     timeOfDay = Number(timeSlider.value) / 1000;
   });
 
-  hudPause.addEventListener('click', e => { if (e.target === hudPause) setPaused(false); });
+  if (pauseControlsBtn && controlsPanel) {
+    pauseControlsBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      controlsPanel.classList.toggle('hidden');
+      pauseControlsBtn.textContent = controlsPanel.classList.contains('hidden')
+        ? 'Ver controles'
+        : 'Ocultar controles';
+    });
+  }
+
+  hudPause.addEventListener('click', e => {
+    const interactive = e.target.closest('input, button, label, #controls-panel');
+    if (!interactive) setPaused(false);
+  });
 
   const minimap = new MiniMap(200, 200);
   minimap.initCityLayer(City);
@@ -333,8 +349,14 @@
     lastT = now;
     frameTime += dt;
 
+    const dialogueBlocked = !!(Mission.isDialogueBlocking && Mission.isDialogueBlocking());
+    if (dialogueBlocked && document.pointerLockElement === canvas) {
+      _unlockingForDialogue = true;
+      document.exitPointerLock();
+    }
+
     /* Avança ciclo dia/noite */
-    if (!paused) timeOfDay = (timeOfDay + DAY_SPEED * dt) % 1.0;
+    if (!paused && !dialogueBlocked) timeOfDay = (timeOfDay + DAY_SPEED * dt) % 1.0;
     if (document.activeElement !== timeSlider)
       timeSlider.value = Math.round(timeOfDay * 1000);
     const _th = Math.floor(timeOfDay * 24);
@@ -344,7 +366,7 @@
     if (paused) { mouseDX = 0; requestAnimationFrame(frame); return; }
 
     /* ── Mouse → yaw + pitch ────────────────────────────────── */
-    if (mouseLocked) {
+    if (mouseLocked && !dialogueBlocked) {
       drone.yaw      -= mouseDX * drone.SENSITIVITY;
       drone.camPitch += mouseDY * drone.SENSITIVITY;
       drone.camPitch  = Math.max(-0.08, Math.min(1.45, drone.camPitch));
@@ -359,56 +381,61 @@
     const rightX =  Math.cos(drone.yaw);
     const rightZ = -Math.sin(drone.yaw);
 
-    /* ── Input ──────────────────────────────────────────────── */
-    const movW    = Input.isDown('KeyW');
-    const movS    = Input.isDown('KeyS');
-    const movA    = Input.isDown('KeyA');
-    const movD    = Input.isDown('KeyD');
-    const movUp   = Input.isDown('Space');
-    const movDown = Input.isDown('ShiftLeft') || Input.isDown('ShiftRight');
+    if (!dialogueBlocked) {
+      /* ── Input ──────────────────────────────────────────────── */
+      const movW    = Input.isDown('KeyW');
+      const movS    = Input.isDown('KeyS');
+      const movA    = Input.isDown('KeyA');
+      const movD    = Input.isDown('KeyD');
+      const movUp   = Input.isDown('Space');
+      const movDown = Input.isDown('ShiftLeft') || Input.isDown('ShiftRight');
 
-    /* ── Física ─────────────────────────────────────────────── */
-    let ax = 0, az = 0, ay = 0;
-    if (movW) { ax += fwdVec[0] * drone.ACCEL; az += fwdVec[2] * drone.ACCEL; }
-    if (movS) { ax -= fwdVec[0] * drone.ACCEL; az -= fwdVec[2] * drone.ACCEL; }
-    if (movA) { ax -= rightX * drone.ACCEL;     az -= rightZ * drone.ACCEL; }
-    if (movD) { ax += rightX * drone.ACCEL;     az += rightZ * drone.ACCEL; }
-    if (movUp)   ay =  drone.ACCEL;
-    if (movDown) ay = -drone.ACCEL;
+      /* ── Física ─────────────────────────────────────────────── */
+      let ax = 0, az = 0, ay = 0;
+      if (movW) { ax += fwdVec[0] * drone.ACCEL; az += fwdVec[2] * drone.ACCEL; }
+      if (movS) { ax -= fwdVec[0] * drone.ACCEL; az -= fwdVec[2] * drone.ACCEL; }
+      if (movA) { ax -= rightX * drone.ACCEL;     az -= rightZ * drone.ACCEL; }
+      if (movD) { ax += rightX * drone.ACCEL;     az += rightZ * drone.ACCEL; }
+      if (movUp)   ay =  drone.ACCEL;
+      if (movDown) ay = -drone.ACCEL;
 
-    const hspd0    = Math.sqrt(drone.vel[0] ** 2 + drone.vel[2] ** 2);
-    const gravScale = 1.0 - Math.min(hspd0 / drone.SPEED, 1.0) * 0.75;
-    ay -= drone.GRAVITY * gravScale;
+      const hspd0    = Math.sqrt(drone.vel[0] ** 2 + drone.vel[2] ** 2);
+      const gravScale = 1.0 - Math.min(hspd0 / drone.SPEED, 1.0) * 0.75;
+      ay -= drone.GRAVITY * gravScale;
 
-    drone.vel[0] += (ax - drone.DRAG  * drone.vel[0]) * dt;
-    drone.vel[2] += (az - drone.DRAG  * drone.vel[2]) * dt;
-    drone.vel[1] += (ay - drone.VDRAG * drone.vel[1]) * dt;
+      drone.vel[0] += (ax - drone.DRAG  * drone.vel[0]) * dt;
+      drone.vel[2] += (az - drone.DRAG  * drone.vel[2]) * dt;
+      drone.vel[1] += (ay - drone.VDRAG * drone.vel[1]) * dt;
 
-    drone.boostVel[0] -= drone.boostVel[0] * drone.BOOST_DRAG * dt;
-    drone.boostVel[1] -= drone.boostVel[1] * drone.BOOST_DRAG * dt;
-    drone.boostVel[2] -= drone.boostVel[2] * drone.BOOST_DRAG * dt;
+      drone.boostVel[0] -= drone.boostVel[0] * drone.BOOST_DRAG * dt;
+      drone.boostVel[1] -= drone.boostVel[1] * drone.BOOST_DRAG * dt;
+      drone.boostVel[2] -= drone.boostVel[2] * drone.BOOST_DRAG * dt;
 
-    const hspd = Math.sqrt(drone.vel[0] ** 2 + drone.vel[2] ** 2);
-    if (hspd > drone.SPEED) {
-      drone.vel[0] = drone.vel[0] / hspd * drone.SPEED;
-      drone.vel[2] = drone.vel[2] / hspd * drone.SPEED;
+      const hspd = Math.sqrt(drone.vel[0] ** 2 + drone.vel[2] ** 2);
+      if (hspd > drone.SPEED) {
+        drone.vel[0] = drone.vel[0] / hspd * drone.SPEED;
+        drone.vel[2] = drone.vel[2] / hspd * drone.SPEED;
+      }
+      drone.vel[1] = Math.max(-drone.VSPEED, Math.min(drone.VSPEED, drone.vel[1]));
+
+      const oldDronePos = [drone.pos[0], drone.pos[1], drone.pos[2]];
+      drone.pos[0] += (drone.vel[0] + drone.boostVel[0]) * dt;
+      drone.pos[1] += (drone.vel[1] + drone.boostVel[1]) * dt;
+      drone.pos[2] += (drone.vel[2] + drone.boostVel[2]) * dt;
+
+      if (drone.pos[1] < 0.3) { drone.pos[1] = 0.3; drone.vel[1] = 0; }
+      if (drone.pos[1] > 150) { drone.pos[1] = 150; drone.vel[1] = 0; drone.boostVel[1] = 0; }
+
+      /* ── Colisão ────────────────────────────────────────────── */
+      const PLAYER_HALF_SIZE   = 1.3;
+      const PLAYER_HALF_HEIGHT = 1.7;
+      const collision = City.resolveCollision(drone.pos, oldDronePos, PLAYER_HALF_SIZE, PLAYER_HALF_HEIGHT);
+      if (collision.hitX) drone.vel[0] = 0;
+      if (collision.hitZ) drone.vel[2] = 0;
+    } else {
+      drone.vel[0] = 0; drone.vel[1] = 0; drone.vel[2] = 0;
+      drone.boostVel[0] = 0; drone.boostVel[1] = 0; drone.boostVel[2] = 0;
     }
-    drone.vel[1] = Math.max(-drone.VSPEED, Math.min(drone.VSPEED, drone.vel[1]));
-
-    const oldDronePos = [drone.pos[0], drone.pos[1], drone.pos[2]];
-    drone.pos[0] += (drone.vel[0] + drone.boostVel[0]) * dt;
-    drone.pos[1] += (drone.vel[1] + drone.boostVel[1]) * dt;
-    drone.pos[2] += (drone.vel[2] + drone.boostVel[2]) * dt;
-
-    if (drone.pos[1] < 0.3) { drone.pos[1] = 0.3; drone.vel[1] = 0; }
-    if (drone.pos[1] > 150) { drone.pos[1] = 150; drone.vel[1] = 0; drone.boostVel[1] = 0; }
-
-    /* ── Colisão ────────────────────────────────────────────── */
-    const PLAYER_HALF_SIZE   = 1.3;
-    const PLAYER_HALF_HEIGHT = 1.7;
-    const collision = City.resolveCollision(drone.pos, oldDronePos, PLAYER_HALF_SIZE, PLAYER_HALF_HEIGHT);
-    if (collision.hitX) drone.vel[0] = 0;
-    if (collision.hitZ) drone.vel[2] = 0;
 
     Mission.update(dt);
 
@@ -432,12 +459,6 @@
     camPos[2] = drone.pos[2] + Math.cos(drone.yaw) * hDist;
     mat4.lookAt(viewMat, camPos, drone.pos, [0, 1, 0]);
     mat4.perspective(projMat, Math.PI / 3, canvas.width / canvas.height, 0.1, 600);
-
-    if (hudPos)
-      hudPos.textContent =
-        `X: ${drone.pos[0].toFixed(1)} \u00a0 ` +
-        `Y: ${drone.pos[1].toFixed(1)} \u00a0 ` +
-        `Z: ${drone.pos[2].toFixed(1)}`;
 
     /* ── Sol, lua e iluminação ──────────────────────────────── */
     const _sunAngle  = (timeOfDay - 0.25) * Math.PI * 2;
