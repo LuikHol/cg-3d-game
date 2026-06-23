@@ -129,6 +129,15 @@ function parseOBJ(text) {
           }
         }
       }
+    } else if (tok === 'usemtl') {
+      // Finaliza o segmento atual e inicia um novo para o material informado.
+      const currCount = outPos.length / 3;
+      const segCount = currCount - segStart;
+      if (segCount > 0) {
+        rawSegments.push({ material: segMaterial, start: segStart, count: segCount });
+      }
+      segMaterial = parts.slice(1).join(' ') || null;
+      segStart = currCount;
     }
     /* Todos os outros tokens (o, g, s, usemtl, mtllib) são ignorados */
   }

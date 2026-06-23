@@ -785,15 +785,19 @@ const City = (() => {
     const cm = rc.carMesh;
     if (!cm) return;
 
+    const sunAngle = ((rc.timeOfDay || 0.5) - 0.25) * Math.PI * 2;
+    const sunHeight = Math.sin(sunAngle);
+    const nightBlend = Math.max(0, Math.min(1, -sunHeight * 3.0 + 0.25));
+
     const MAT = {
       Body   : null,
-      Black  : [0.01, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0],
-      Bottom : [0.02, 0.02, 0.02, 0.0, 0.0, 0.0, 0.0],
-      Bumpers: [0.06, 0.06, 0.06, 0.0, 0.0, 0.0, 0.0],
-      Lights : [1.0,  1.0,  0.9,  0.0, 0.3, 0.3, 0.2],
-      Tires  : [0.05, 0.05, 0.05, 0.3, 0.0, 0.0, 0.0],
-      Wheels : [0.49, 0.49, 0.49, 0.6, 0.0, 0.0, 0.0],
-      Window : [0.04, 0.06, 0.10, 0.8, 0.0, 0.0, 0.0],
+      Black  : [0.07, 0.07, 0.08, 0.18, 0.0, 0.0, 0.0],
+      Bottom : [0.10, 0.10, 0.10, 0.08, 0.0, 0.0, 0.0],
+      Bumpers: [0.16, 0.16, 0.17, 0.55, 0.0, 0.0, 0.0],
+      Lights : [0.98, 0.94, 0.82, 0.85, 0.0, 0.0, 0.0],
+      Tires  : [0.03, 0.03, 0.03, 0.10, 0.0, 0.0, 0.0],
+      Wheels : [0.62, 0.62, 0.64, 1.10, 0.0, 0.0, 0.0],
+      Window : [0.16, 0.22, 0.30, 1.30, 0.0, 0.0, 0.0],
     };
 
     const segs = (cm.segments && cm.segments.length > 0) ? cm.segments : null;
@@ -816,12 +820,17 @@ const City = (() => {
           const m = Object.prototype.hasOwnProperty.call(MAT, seg.material) ? MAT[seg.material] : null;
           if (m === null) {
             gl.uniform3f(loc.uColor, c.r, c.g, c.b);
-            gl.uniform1f(loc.uSpecular, 0.5);
+            gl.uniform1f(loc.uSpecular, 0.70);
             gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
           } else {
             gl.uniform3f(loc.uColor, m[0], m[1], m[2]);
             gl.uniform1f(loc.uSpecular, m[3]);
-            gl.uniform3f(loc.uEmissive, m[4], m[5], m[6]);
+            if (seg.material === 'Lights') {
+              const le = 0.02 + nightBlend * 0.55;
+              gl.uniform3f(loc.uEmissive, le * 1.00, le * 0.85, le * 0.55);
+            } else {
+              gl.uniform3f(loc.uEmissive, m[4], m[5], m[6]);
+            }
           }
           gl.drawArrays(gl.TRIANGLES, seg.start, seg.count);
         }
