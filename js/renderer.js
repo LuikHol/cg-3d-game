@@ -35,6 +35,42 @@ const Renderer = (() => {
 
   /* Textura body do drone */
   let _droneBodyTex = null;
+  let _grassTex = null;
+
+  function _loadGrassTex(gl) {
+    if (_grassTex) return;
+    const size = 128;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const ctx = c.getContext('2d');
+
+    // Base opaca de grama.
+    ctx.fillStyle = 'rgba(70,120,56,1.0)';
+    ctx.fillRect(0, 0, size, size);
+
+    // Ruido simples para variar tons sem transparencia.
+    for (let i = 0; i < 900; i++) {
+      const x = (Math.random() * size) | 0;
+      const y = (Math.random() * size) | 0;
+      const w = 1 + ((Math.random() * 3) | 0);
+      const h = 1 + ((Math.random() * 3) | 0);
+      const g = 85 + ((Math.random() * 70) | 0);
+      const r = 35 + ((Math.random() * 35) | 0);
+      const b = 25 + ((Math.random() * 30) | 0);
+      ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',1.0)';
+      ctx.fillRect(x, y, w, h);
+    }
+
+    _grassTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, _grassTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  }
+
   function _loadDroneBodyTex(gl) {
     if (_droneBodyTex) return;
     const tex = gl.createTexture();
@@ -335,14 +371,20 @@ const Renderer = (() => {
   function drawGroundAndRoads(rc, nightBlend) {
     const { gl, loc, modelMat } = rc;
     rc.bindMesh();
+    _loadGrassTex(gl);
 
     /* Chão – grama com glow urbano noturno */
     const gg = nightBlend * 0.06;
     gl.uniform3f(loc.uEmissive, gg * 0.50, gg * 0.38, gg * 0.10);
+    gl.uniform1f(loc.uUseTex, 1.0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, _grassTex);
+    gl.uniform1i(loc.uTex, 0);
     mat4.identity(modelMat);
     mat4.translate(modelMat, modelMat, [0, -0.15, 0]);
     mat4.scale(modelMat, modelMat, [300, 0.3, 300]);
-    _drawBox(rc, 0.28, 0.58, 0.22);
+    _drawBox(rc, 1.0, 1.0, 1.0);
+    gl.uniform1f(loc.uUseTex, 0.0);
     gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
 
     /* Atalhos para os valores de City */

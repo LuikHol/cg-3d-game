@@ -4,8 +4,8 @@
    Cada face tem 4 vértices próprios (não compartilhados) para que
    as normais sejam por-face (flat shading correto).
 
-   Retorna: { positions: Float32Array, normals: Float32Array,
-              indices: Uint16Array }
+  Retorna: { positions: Float32Array, normals: Float32Array,
+          uvs: Float32Array, indices: Uint16Array }
    ================================================================ */
 
 function createBoxGeometry() {
@@ -49,7 +49,17 @@ function createBoxGeometry() {
     20,21,22,  20,22,23,   /* bottom */
   ]);
 
-  return { positions, normals, indices };
+  /* UV por face (topo com repeticao maior para nao esticar a grama) */
+  const uvs = new Float32Array([
+    /* Front  (+Z) */ 0,0, 1,0, 1,1, 0,1,
+    /* Back   (-Z) */ 0,0, 1,0, 1,1, 0,1,
+    /* Left   (-X) */ 0,0, 1,0, 1,1, 0,1,
+    /* Right  (+X) */ 0,0, 1,0, 1,1, 0,1,
+    /* Top    (+Y) */ 0,0, 60,0, 60,60, 0,60,
+    /* Bottom (-Y) */ 0,0, 1,0, 1,1, 0,1,
+  ]);
+
+  return { positions, normals, uvs, indices };
 }
 
 /* ================================================================

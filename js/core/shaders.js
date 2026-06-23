@@ -73,10 +73,10 @@ void main() {
   vec3 baseColor = uColor * texel.rgb;
   float alpha    = uAlpha * texel.a;
   if (uTreeMode > 0.5) {
-    float trunkMix = smoothstep(uTreeTrunkTop - 0.90, uTreeTrunkTop + 3.20, vFragPos.y);
-    trunkMix = trunkMix * trunkMix;
     vec3 trunkColor = vec3(0.28, 0.16, 0.07);
-    baseColor = mix(trunkColor, uColor, trunkMix);
+    // Corte mais alto para evitar vazamento verde em galhos baixos.
+    float isLeaf = step(uTreeTrunkTop + 1.20, vFragPos.y);
+    baseColor = mix(trunkColor, uColor, isLeaf);
   }
   vec3 color;
   if (uUnlit > 0.5) {

@@ -106,6 +106,9 @@
   const normVBO = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, normVBO);
   gl.bufferData(gl.ARRAY_BUFFER, geo.normals, gl.STATIC_DRAW);
+  const uvVBO = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, uvVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, geo.uvs, gl.STATIC_DRAW);
   const idxBuf = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geo.indices, gl.STATIC_DRAW);
@@ -179,8 +182,9 @@
     gl.enableVertexAttribArray(loc.aNorm);
     gl.vertexAttribPointer(loc.aNorm, 3, gl.FLOAT, false, 0, 0);
     if (loc.aUV >= 0) {
-      gl.disableVertexAttribArray(loc.aUV);
-      gl.vertexAttrib2f(loc.aUV, 0.0, 0.0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, uvVBO);
+      gl.enableVertexAttribArray(loc.aUV);
+      gl.vertexAttribPointer(loc.aUV, 2, gl.FLOAT, false, 0, 0);
     }
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
   }
