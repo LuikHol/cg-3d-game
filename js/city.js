@@ -247,6 +247,20 @@ const City = (() => {
       return Math.abs(x - PARK_CX) < PARK_HW + 1.2 &&
              Math.abs(z - PARK_CZ) < PARK_HZ + 1.2;
     }
+    function hitsCar(x, z) {
+      const pad = 1.2;
+      for (let i = 0; i < carInstances.length; i++) {
+        const c = carInstances[i];
+        const cosR = Math.cos(c.rotY);
+        const sinR = Math.sin(c.rotY);
+        const cx = c.x + CAR_OFS_Z * sinR;
+        const cz = c.z + CAR_OFS_Z * cosR;
+        const hx = CAR_HALF_W * Math.abs(cosR) + CAR_HALF_L * Math.abs(sinR) + pad;
+        const hz = CAR_HALF_L * Math.abs(cosR) + CAR_HALF_W * Math.abs(sinR) + pad;
+        if (Math.abs(x - cx) <= hx && Math.abs(z - cz) <= hz) return true;
+      }
+      return false;
+    }
     for (let tries = 0; tries < 9000 && out.length < 185; tries++) {
       const x = (rand() * 2 - 1) * 125;
       const z = (rand() * 2 - 1) * 125;
@@ -254,6 +268,7 @@ const City = (() => {
       if (hitsBuilding(x, z)) continue;
       if (hitsMissionZones(x, z)) continue;
       if (hitsPark(x, z)) continue;
+      if (hitsCar(x, z)) continue;
       let tooClose = false;
       for (let i = 0; i < out.length; i++) {
         const dx = x - out[i].x, dz = z - out[i].z;
@@ -378,12 +393,10 @@ const City = (() => {
     const py = posArray[1];
     let hitX = false, hitZ = false;
     if (checkBuildingCollision(posArray[0], oldPos[2], py, playerHalf, playerHalfHeight) ||
-        checkTreeCollision(posArray[0], oldPos[2], py, playerHalf, playerHalfHeight) ||
         checkCarCollision(posArray[0], oldPos[2], py, playerHalf, playerHalfHeight)) {
       posArray[0] = oldPos[0]; hitX = true;
     }
     if (checkBuildingCollision(posArray[0], posArray[2], py, playerHalf, playerHalfHeight) ||
-        checkTreeCollision(posArray[0], posArray[2], py, playerHalf, playerHalfHeight) ||
         checkCarCollision(posArray[0], posArray[2], py, playerHalf, playerHalfHeight)) {
       posArray[2] = oldPos[2]; hitZ = true;
     }
@@ -653,7 +666,8 @@ const City = (() => {
     if (!treeMesh || treeInstances.length === 0) return;
     bindOBJMesh(gl, loc, treeMesh);
     gl.uniform1f(loc.uSpecular, 0.08);
-    gl.uniform1f(loc.uTreeMode, 1.0);
+    gl.uniform1f(loc.uTreeMode, 0.0);
+    const segs = (treeMesh.segments && treeMesh.segments.length > 0) ? treeMesh.segments : null;
     for (let i = 0; i < treeInstances.length; i++) {
       const t = treeInstances[i];
       const dx = t.x - camPos[0], dz = t.z - camPos[2];
@@ -661,7 +675,7 @@ const City = (() => {
       if (d2 > TREE_CULL_DIST2) continue;
       if (d2 > TREE_HALF_DIST2 && (i % 2) !== 0) continue;
       if (d2 > TREE_FULL_DIST2 && d2 <= TREE_HALF_DIST2 && (i % 3) === 1) continue;
-      const s = t.scale, e = nightBlend * 0.02, baseY = 0.75 * s;
+      const s = t.scale * 0.88, e = nightBlend * 0.02, baseY = 0.75 * s;
       mat4.identity(modelMat);
       mat4.translate(modelMat, modelMat, [t.x, baseY, t.z]);
       mat4.rotateY(modelMat, modelMat, t.rotY);
@@ -669,10 +683,37 @@ const City = (() => {
       gl.uniformMatrix4fv(loc.uModel, false, modelMat);
       mat3.normalFromMat4(normMat3, modelMat);
       gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
-      gl.uniform1f(loc.uTreeTrunkTop, baseY + 7.6 * s);
       gl.uniform3f(loc.uEmissive, e*0.20, e*0.32, e*0.08);
-      gl.uniform3f(loc.uColor, 0.17*t.tint, 0.45*t.tint, 0.17*t.tint);
-      drawOBJMesh(gl, treeMesh);
+
+      // Duas paletas de verde alternadas por árvore.
+      const leafA = [0.12 * t.tint, 0.34 * t.tint, 0.12 * t.tint];
+      const leafB = [0.26 * t.tint, 0.60 * t.tint, 0.24 * t.tint];
+      const leaf = (i % 2 === 0) ? leafA : leafB;
+      const trunk = [0.34, 0.23, 0.13];
+
+      if (segs) {
+        for (const seg of segs) {
+          const m = (seg.material || '').toLowerCase();
+          const isTrunk = m.indexOf('trunk') >= 0;
+          const isTop = m.indexOf('treetop') >= 0 || m.indexOf('leaf') >= 0;
+          if (isTrunk) {
+            gl.uniform3f(loc.uColor, trunk[0], trunk[1], trunk[2]);
+          } else if (isTop) {
+            gl.uniform3f(loc.uColor, leaf[0], leaf[1], leaf[2]);
+          } else {
+            // fallback para materiais desconhecidos
+            gl.uniform3f(loc.uColor, leaf[0], leaf[1], leaf[2]);
+          }
+          gl.drawArrays(gl.TRIANGLES, seg.start, seg.count);
+        }
+      } else {
+        // fallback para malhas sem segmento de material
+        gl.uniform1f(loc.uTreeMode, 1.0);
+        gl.uniform1f(loc.uTreeTrunkTop, baseY + 7.6 * s);
+        gl.uniform3f(loc.uColor, leaf[0], leaf[1], leaf[2]);
+        drawOBJMesh(gl, treeMesh);
+        gl.uniform1f(loc.uTreeMode, 0.0);
+      }
     }
     gl.uniform1f(loc.uTreeMode, 0.0);
     gl.uniform1f(loc.uTreeTrunkTop, 0.0);

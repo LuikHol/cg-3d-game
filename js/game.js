@@ -139,7 +139,7 @@
 
   /* Árvore OBJ (carregada de forma assíncrona) */
   let treeMesh = null;
-  loadOBJ('js/objects/Lowpoly_tree_sample.obj')
+  loadOBJ('js/objects/arvore.obj')
     .then(parsed => { treeMesh = uploadOBJMesh(gl, parsed); })
     .catch(err   => { console.error('Falha ao carregar árvore OBJ:', err); });
   
