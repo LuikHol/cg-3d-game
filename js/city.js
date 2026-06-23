@@ -210,6 +210,47 @@ const City = (() => {
   /* ── Árvores ──────────────────────────────────────────────────── */
   let treeInstances = [];
 
+  function _treeRadiusFromScale(scale) {
+    return Math.max(1.25, scale * 8.5);
+  }
+
+  function _intersectsBuildingWithRadius(x, z, radius) {
+    const pad = radius + 0.55;
+    for (let i = 0; i < buildings.length; i++) {
+      const b = buildings[i];
+      if (x > b[0] - b[2] / 2 - pad && x < b[0] + b[2] / 2 + pad &&
+          z > b[1] - b[3] / 2 - pad && z < b[1] + b[3] / 2 + pad) return true;
+    }
+    return false;
+  }
+
+  function _intersectsCarWithRadius(x, z, radius) {
+    const pad = radius + 0.5;
+    for (let i = 0; i < carInstances.length; i++) {
+      const c = carInstances[i];
+      const cosR = Math.cos(c.rotY);
+      const sinR = Math.sin(c.rotY);
+      const cx = c.x + CAR_OFS_Z * sinR;
+      const cz = c.z + CAR_OFS_Z * cosR;
+      const hx = CAR_HALF_W * Math.abs(cosR) + CAR_HALF_L * Math.abs(sinR) + pad;
+      const hz = CAR_HALF_L * Math.abs(cosR) + CAR_HALF_W * Math.abs(sinR) + pad;
+      if (Math.abs(x - cx) <= hx && Math.abs(z - cz) <= hz) return true;
+    }
+    return false;
+  }
+
+  function _pruneTreeOverlaps(instances) {
+    const safe = [];
+    for (let i = 0; i < instances.length; i++) {
+      const t = instances[i];
+      const r = _treeRadiusFromScale(t.scale);
+      if (_intersectsBuildingWithRadius(t.x, t.z, r)) continue;
+      if (_intersectsCarWithRadius(t.x, t.z, r)) continue;
+      safe.push(t);
+    }
+    return safe;
+  }
+
   function _buildTreeInstances(missionDefs) {
     const out = [];
     let seed = 0xC0FFEE;
@@ -224,14 +265,8 @@ const City = (() => {
       if (Math.abs(x - 40) < 3.6 || Math.abs(x + 40) < 3.6) return true;
       return false;
     }
-    function hitsBuilding(x, z) {
-      const pad = 1.7;
-      for (let i = 0; i < buildings.length; i++) {
-        const b = buildings[i];
-        if (x > b[0]-b[2]/2-pad && x < b[0]+b[2]/2+pad &&
-            z > b[1]-b[3]/2-pad && z < b[1]+b[3]/2+pad) return true;
-      }
-      return false;
+    function hitsBuilding(x, z, treeRadius) {
+      return _intersectsBuildingWithRadius(x, z, treeRadius);
     }
     function hitsMissionZones(x, z) {
       for (let mi = 0; mi < missionDefs.length; mi++) {
@@ -247,36 +282,27 @@ const City = (() => {
       return Math.abs(x - PARK_CX) < PARK_HW + 1.2 &&
              Math.abs(z - PARK_CZ) < PARK_HZ + 1.2;
     }
-    function hitsCar(x, z) {
-      const pad = 1.2;
-      for (let i = 0; i < carInstances.length; i++) {
-        const c = carInstances[i];
-        const cosR = Math.cos(c.rotY);
-        const sinR = Math.sin(c.rotY);
-        const cx = c.x + CAR_OFS_Z * sinR;
-        const cz = c.z + CAR_OFS_Z * cosR;
-        const hx = CAR_HALF_W * Math.abs(cosR) + CAR_HALF_L * Math.abs(sinR) + pad;
-        const hz = CAR_HALF_L * Math.abs(cosR) + CAR_HALF_W * Math.abs(sinR) + pad;
-        if (Math.abs(x - cx) <= hx && Math.abs(z - cz) <= hz) return true;
-      }
-      return false;
+    function hitsCar(x, z, treeRadius) {
+      return _intersectsCarWithRadius(x, z, treeRadius);
     }
     for (let tries = 0; tries < 9000 && out.length < 185; tries++) {
       const x = (rand() * 2 - 1) * 125;
       const z = (rand() * 2 - 1) * 125;
+      const scale = 0.11 + rand() * 0.13;
+      const treeRadius = _treeRadiusFromScale(scale);
       if (isInRoad(x, z)) continue;
-      if (hitsBuilding(x, z)) continue;
+      if (hitsBuilding(x, z, treeRadius)) continue;
       if (hitsMissionZones(x, z)) continue;
       if (hitsPark(x, z)) continue;
-      if (hitsCar(x, z)) continue;
+      if (hitsCar(x, z, treeRadius)) continue;
       let tooClose = false;
       for (let i = 0; i < out.length; i++) {
         const dx = x - out[i].x, dz = z - out[i].z;
-        if (dx*dx + dz*dz < 20) { tooClose = true; break; }
+        const minDist = treeRadius + (out[i].radius || _treeRadiusFromScale(out[i].scale));
+        if (dx*dx + dz*dz < minDist * minDist) { tooClose = true; break; }
       }
       if (tooClose) continue;
-      const scale = 0.11 + rand() * 0.13;
-      out.push({ x, z, scale, rotY: rand() * Math.PI * 2, tint: 0.90 + rand() * 0.25 });
+      out.push({ x, z, scale, radius: treeRadius, rotY: rand() * Math.PI * 2, tint: 0.90 + rand() * 0.25 });
     }
     return out;
   }
@@ -967,6 +993,7 @@ const City = (() => {
     buildTrees(missionDefs) {
       treeInstances = _buildTreeInstances(missionDefs);
       _addTreesNearPark(treeInstances);
+      treeInstances = _pruneTreeOverlaps(treeInstances);
     },
     resolveCollision,
     drawBuildings,
