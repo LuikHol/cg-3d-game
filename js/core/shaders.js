@@ -6,6 +6,7 @@
 const VERT_SRC = /* glsl */`
 attribute vec3 aPosition;
 attribute vec3 aNormal;
+attribute vec2 aUV;
 
 uniform mat4 uModel;
 uniform mat4 uView;
@@ -14,11 +15,13 @@ uniform mat3 uNormalMat;   /* transposta da inversa de uModel (3x3) */
 
 varying vec3 vNormal;
 varying vec3 vFragPos;
+varying vec2 vUV;
 
 void main() {
   vec4 worldPos = uModel * vec4(aPosition, 1.0);
   vFragPos      = worldPos.xyz;
   vNormal       = uNormalMat * aNormal;
+  vUV           = aUV;
   gl_Position   = uProj * uView * worldPos;
 }
 `;
@@ -31,6 +34,9 @@ uniform vec3  uLightPos;    /* posição da fonte de luz (sol) no mundo */
 uniform vec3  uEyePos;      /* posição da câmera no mundo             */
 uniform vec3  uColor;       /* cor RGB do objeto                      */
 uniform float uAlpha;       /* opacidade (1.0 = totalmente opaco)     */
+uniform sampler2D uTex;     /* textura RGBA (opcional)                */
+uniform float uUseTex;      /* 1=usa textura, 0=cor sólida            */
+uniform float uUnlit;       /* 1=sem iluminação (sprites emissivos)   */
 uniform float uAmbient;        /* nível de luz ambiente (varia dia/noite)*/
 uniform float uLightIntensity; /* intensidade da fonte (1=sol, ~0.15=lua) */
 uniform vec3  uEmissive;       /* cor emissiva – ignora iluminação       */
@@ -43,8 +49,14 @@ uniform float uFogFar;         /* fim da névoa                             */
 
 varying vec3 vNormal;
 varying vec3 vFragPos;
+varying vec2 vUV;
 
 void main() {
+  vec4 texel = vec4(1.0);
+  if (uUseTex > 0.5) {
+    texel = texture2D(uTex, vUV);
+  }
+
   vec3 norm     = normalize(vNormal);
   vec3 lightDir = normalize(uLightPos - vFragPos);
   vec3 viewDir  = normalize(uEyePos   - vFragPos);
@@ -58,20 +70,26 @@ void main() {
 
   float d     = diff * uLightIntensity;
   float s     = spec * uLightIntensity;
-  vec3 baseColor = uColor;
+  vec3 baseColor = uColor * texel.rgb;
+  float alpha    = uAlpha * texel.a;
   if (uTreeMode > 0.5) {
     float trunkMix = smoothstep(uTreeTrunkTop - 0.90, uTreeTrunkTop + 3.20, vFragPos.y);
     trunkMix = trunkMix * trunkMix;
     vec3 trunkColor = vec3(0.28, 0.16, 0.07);
     baseColor = mix(trunkColor, uColor, trunkMix);
   }
-  vec3 color = (uAmbient + d) * baseColor + s * vec3(1.0) + uEmissive;
+  vec3 color;
+  if (uUnlit > 0.5) {
+    color = baseColor + uEmissive;
+  } else {
+    color = (uAmbient + d) * baseColor + s * vec3(1.0) + uEmissive;
+  }
 
   float distToEye = length(uEyePos - vFragPos);
   float fogF = clamp((distToEye - uFogNear) / max(0.001, (uFogFar - uFogNear)), 0.0, 1.0);
   fogF = fogF * fogF * (3.0 - 2.0 * fogF);  // smoothstep manual
   color = mix(color, uFogColor, fogF);
 
-  gl_FragColor  = vec4(color, uAlpha);
+  gl_FragColor  = vec4(color, alpha);
 }
 `;

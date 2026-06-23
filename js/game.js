@@ -62,6 +62,7 @@
   const loc = {
     aPos  : gl.getAttribLocation (prog, 'aPosition'),
     aNorm : gl.getAttribLocation (prog, 'aNormal'),
+    aUV   : gl.getAttribLocation (prog, 'aUV'),
     uModel    : gl.getUniformLocation(prog, 'uModel'),
     uView     : gl.getUniformLocation(prog, 'uView'),
     uProj     : gl.getUniformLocation(prog, 'uProj'),
@@ -70,6 +71,9 @@
     uEyePos   : gl.getUniformLocation(prog, 'uEyePos'),
     uColor    : gl.getUniformLocation(prog, 'uColor'),
     uAlpha    : gl.getUniformLocation(prog, 'uAlpha'),
+    uTex      : gl.getUniformLocation(prog, 'uTex'),
+    uUseTex   : gl.getUniformLocation(prog, 'uUseTex'),
+    uUnlit    : gl.getUniformLocation(prog, 'uUnlit'),
     uAmbient        : gl.getUniformLocation(prog, 'uAmbient'),
     uLightIntensity : gl.getUniformLocation(prog, 'uLightIntensity'),
     uEmissive       : gl.getUniformLocation(prog, 'uEmissive'),
@@ -81,6 +85,9 @@
     uFogFar         : gl.getUniformLocation(prog, 'uFogFar'),
   };
   gl.uniform1f(gl.getUniformLocation(prog, 'uAlpha'), 1.0);
+  gl.uniform1i(loc.uTex, 0);
+  gl.uniform1f(loc.uUseTex, 0.0);
+  gl.uniform1f(loc.uUnlit, 0.0);
   gl.uniform1f(loc.uAmbient,        0.25);
   gl.uniform1f(loc.uLightIntensity, 1.0);
   gl.uniform1f(loc.uTreeMode,       0.0);
@@ -141,6 +148,10 @@
     gl.bindBuffer(gl.ARRAY_BUFFER, normVBO);
     gl.enableVertexAttribArray(loc.aNorm);
     gl.vertexAttribPointer(loc.aNorm, 3, gl.FLOAT, false, 0, 0);
+    if (loc.aUV >= 0) {
+      gl.disableVertexAttribArray(loc.aUV);
+      gl.vertexAttrib2f(loc.aUV, 0.0, 0.0);
+    }
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
   }
   function bindDisc() {
@@ -150,6 +161,10 @@
     gl.bindBuffer(gl.ARRAY_BUFFER, discNormVBO);
     gl.enableVertexAttribArray(loc.aNorm);
     gl.vertexAttribPointer(loc.aNorm, 3, gl.FLOAT, false, 0, 0);
+    if (loc.aUV >= 0) {
+      gl.disableVertexAttribArray(loc.aUV);
+      gl.vertexAttrib2f(loc.aUV, 0.0, 0.0);
+    }
   }
   function bindTorus() {
     gl.bindBuffer(gl.ARRAY_BUFFER, torPosVBO);
@@ -158,6 +173,10 @@
     gl.bindBuffer(gl.ARRAY_BUFFER, torNormVBO);
     gl.enableVertexAttribArray(loc.aNorm);
     gl.vertexAttribPointer(loc.aNorm, 3, gl.FLOAT, false, 0, 0);
+    if (loc.aUV >= 0) {
+      gl.disableVertexAttribArray(loc.aUV);
+      gl.vertexAttrib2f(loc.aUV, 0.0, 0.0);
+    }
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, torIdxBuf);
   }
 
@@ -225,7 +244,7 @@
   /* ── 8. Inicializa módulos ───────────────────────────────────── */
 
   Mission.init(drone);
-  Renderer.init(drone);
+  Renderer.init(drone, gl);
   City.buildTrees(Mission.MISSION_DEFS);
 
   /* ── 9. Ciclo dia/noite e HUD ───────────────────────────────── */
@@ -422,7 +441,7 @@
 
     /* ── Render context (passado a todos os módulos de draw) ── */
     const rc = {
-      gl, loc, modelMat, normMat3, camPos,
+      gl, loc, modelMat, viewMat, normMat3, camPos,
       IDX_COUNT, DISC_COUNT, TOR_IDX_COUNT,
       bindMesh, bindDisc, bindTorus,
       frameTime,
