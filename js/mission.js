@@ -244,10 +244,12 @@ const Mission = (() => {
     const dispScore = _mission.totalScore + (_mission.phase === 'flying' ? _mission.score : 0);
 
     function scoreToRank(s) {
-      if (s >= 700) return { letter: 'S', color: '#ffd700' };
-      if (s >= 500) return { letter: 'A', color: '#4f4' };
-      if (s >= 300) return { letter: 'B', color: '#4af' };
-      return                { letter: 'C', color: '#f84' };
+    const maxS = hoops.length * SCORE_PER_HOOP + 500;
+    const ratio = s / maxS;
+    if (ratio >= 0.88) return { letter: 'S', color: '#ffd700' };
+    if (ratio >= 0.72) return { letter: 'A', color: '#4f4'    };
+    if (ratio >= 0.55) return { letter: 'B', color: '#4af'    };
+    return               { letter: 'C', color: '#f84'    };
     }
 
     switch (_mission.phase) {
@@ -398,26 +400,29 @@ const Mission = (() => {
     if (_mission.phase === 'done') return;
     const { gl, loc, modelMat } = rc;
     const def = _mission.def;
-    let tx, tz;
+    let tx, tz, ty;
     if (_mission.phase === 'pickup') {
-      tx = def.pickup.x;  tz = def.pickup.z;
+        tx = def.pickup.x;  tz = def.pickup.z;  ty = 2.0;
     } else if (_mission.phase === 'flying') {
-      const h = def.hoops[_mission.currentHoop];
-      tx = h.pos[0];  tz = h.pos[2];
+        const h = def.hoops[_mission.currentHoop];
+        tx = h.pos[0];  tz = h.pos[2];  ty = h.pos[1];
     } else {
-      tx = def.delivery.x;  tz = def.delivery.z;
+        tx = def.delivery.x;  tz = def.delivery.z;  ty = 2.0;
     }
 
     const dx    = tx - _drone.pos[0];
+    const dy    = ty - _drone.pos[1];
     const dz    = tz - _drone.pos[2];
+    const hDist = Math.sqrt(dx*dx + dz*dz);
     const angle = Math.atan2(dx, dz);
+    const pitch = Math.max(-1.2, Math.min(1.2, Math.atan2(dy, Math.max(hDist, 0.01))));
     const bob   = Math.sin(rc.frameTime * 3.0) * 0.12;
     const arrowY = _drone.pos[1] + 2.8 + bob;
 
     let ar, ag, ab;
-    if      (_mission.phase === 'pickup')   { ar = 0.1; ag = 1.0; ab = 0.2; }
-    else if (_mission.phase === 'flying')   { ar = 1.0; ag = 0.9; ab = 0.0; }
-    else                                    { ar = 1.0; ag = 0.4; ab = 0.0; }
+    if      (_mission.phase === 'pickup') { ar = 0.1; ag = 1.0; ab = 0.2; }
+    else if (_mission.phase === 'flying') { ar = 1.0; ag = 0.9; ab = 0.0; }
+    else                                  { ar = 1.0; ag = 0.4; ab = 0.0; }
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -426,16 +431,20 @@ const Mission = (() => {
 
     rc.bindMesh();
 
+    /* Haste */
     mat4.identity(modelMat);
     mat4.translate(modelMat, modelMat, [_drone.pos[0], arrowY, _drone.pos[2]]);
     mat4.rotateY(modelMat, modelMat, angle);
+    mat4.rotateX(modelMat, modelMat, -pitch);
     mat4.translate(modelMat, modelMat, [0, 0, 0.32]);
     mat4.scale(modelMat, modelMat, [0.10, 0.10, 0.45]);
     _drawBox(rc, ar, ag, ab);
 
+    /* Cabeça */
     mat4.identity(modelMat);
     mat4.translate(modelMat, modelMat, [_drone.pos[0], arrowY, _drone.pos[2]]);
     mat4.rotateY(modelMat, modelMat, angle);
+    mat4.rotateX(modelMat, modelMat, -pitch);
     mat4.translate(modelMat, modelMat, [0, 0, -0.22]);
     mat4.scale(modelMat, modelMat, [0.34, 0.15, 0.28]);
     _drawBox(rc, ar, ag, ab);
