@@ -208,8 +208,6 @@ const City = (() => {
   redistributeBuildingsOnGrass();
 
   /* ── Árvores ──────────────────────────────────────────────────── */
-  /* Inicializado via City.buildTrees(missionDefs) chamado de game.js
-     após MISSION_DEFS estar definido.                               */
   let treeInstances = [];
 
   function _buildTreeInstances(missionDefs) {
@@ -352,15 +350,41 @@ const City = (() => {
     }
     return null;
   }
+
+  /* Dimensões do Car.obj (escala 1:1, centro geométrico em local Z≈2.0) */
+  const CAR_HALF_W = 0.7;   // meia-largura (eixo X local)
+  const CAR_HALF_L = 2.2;   // meia-comprimento (eixo Z local)
+  const CAR_OFS_Z  = 0.3;   // offset do centro geométrico no eixo Z local
+  const CAR_HEIGHT = 1.6;   // altura do topo do carro em mundo
+
+  function checkCarCollision(px, pz, py, playerHalf, playerHalfHeight) {
+    if (py > CAR_HEIGHT + 1.2) return null;
+    for (let i = 0; i < carInstances.length; i++) {
+      const c = carInstances[i];
+      const cosR = Math.cos(c.rotY);
+      const sinR = Math.sin(c.rotY);
+      /* Centro geométrico do carro em coordenadas de mundo */
+      const cx = c.x + CAR_OFS_Z * sinR;
+      const cz = c.z + CAR_OFS_Z * cosR;
+      /* AABB do retângulo rotacionado (exato para qualquer ângulo) */
+      const hx = CAR_HALF_W * Math.abs(cosR) + CAR_HALF_L * Math.abs(sinR);
+      const hz = CAR_HALF_L * Math.abs(cosR) + CAR_HALF_W * Math.abs(sinR);
+      if (intersectsSquareAABB(px, pz, playerHalf, cx, cz, hx, hz)) return c;
+    }
+    return null;
+  }
+
   function resolveCollision(posArray, oldPos, playerHalf, playerHalfHeight) {
     const py = posArray[1];
     let hitX = false, hitZ = false;
     if (checkBuildingCollision(posArray[0], oldPos[2], py, playerHalf, playerHalfHeight) ||
-        checkTreeCollision(posArray[0], oldPos[2], py, playerHalf, playerHalfHeight)) {
+        checkTreeCollision(posArray[0], oldPos[2], py, playerHalf, playerHalfHeight) ||
+        checkCarCollision(posArray[0], oldPos[2], py, playerHalf, playerHalfHeight)) {
       posArray[0] = oldPos[0]; hitX = true;
     }
     if (checkBuildingCollision(posArray[0], posArray[2], py, playerHalf, playerHalfHeight) ||
-        checkTreeCollision(posArray[0], posArray[2], py, playerHalf, playerHalfHeight)) {
+        checkTreeCollision(posArray[0], posArray[2], py, playerHalf, playerHalfHeight) ||
+        checkCarCollision(posArray[0], posArray[2], py, playerHalf, playerHalfHeight)) {
       posArray[2] = oldPos[2]; hitZ = true;
     }
     return { hitX, hitZ, hitAny: hitX || hitZ };
@@ -498,8 +522,6 @@ const City = (() => {
   })();
 
   /* ── Funções de desenho ───────────────────────────────────────── */
-  /* rc = { gl, loc, modelMat, normMat3, camPos, IDX_COUNT, DISC_COUNT,
-            bindMesh, bindDisc, treeMesh }                          */
 
   function drawBuildings(rc, nightBlend) {
     const { gl, loc, modelMat, normMat3, camPos, IDX_COUNT, bindMesh } = rc;
@@ -763,8 +785,6 @@ const City = (() => {
     const cm = rc.carMesh;
     if (!cm) return;
 
-    /* Propriedades por material do Car.mtl: [r, g, b, specular, emR, emG, emB]
-       null = usa a cor da instância (lataria com cor variável)              */
     const MAT = {
       Body   : null,
       Black  : [0.01, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0],
@@ -806,7 +826,6 @@ const City = (() => {
           gl.drawArrays(gl.TRIANGLES, seg.start, seg.count);
         }
       } else {
-        /* Fallback sem segmentos */
         gl.uniform3f(loc.uColor, c.r, c.g, c.b);
         gl.uniform1f(loc.uSpecular, 0.0);
         gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
@@ -819,7 +838,7 @@ const City = (() => {
     rc.bindMesh();
   }
 
-  /* ── Helper interno (evita repetir gl calls) ─────────────────── */
+  /* ── Helper interno ───────────────────────────────────────────── */
   function _drawBox(rc, r, g, b) {
     const { gl, loc, modelMat, normMat3, IDX_COUNT } = rc;
     gl.uniformMatrix4fv(loc.uModel, false, modelMat);
@@ -831,22 +850,17 @@ const City = (() => {
 
   /* ── API pública ──────────────────────────────────────────────── */
   return {
-    /* Dados */
     buildings,
     get treeInstances() { return treeInstances; },
     cityProps,
     buildingWindowData,
-    /* Constantes de layout (usadas em game.js para ruas) */
     ROAD_HALF_MAIN, ROAD_HALF_SEC, SIDEWALK_W_MAIN, SIDEWALK_W_SEC,
     PARK_CX, PARK_CZ, PARK_HW, PARK_HZ,
-    /* Inicialização das árvores (chamada após MISSION_DEFS existir) */
     buildTrees(missionDefs) {
       treeInstances = _buildTreeInstances(missionDefs);
       _addTreesNearPark(treeInstances);
     },
-    /* Colisão */
     resolveCollision,
-    /* Renderização */
     drawBuildings,
     drawBuildingLights,
     drawTrees,
