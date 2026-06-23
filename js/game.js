@@ -149,6 +149,18 @@
     .then(parsed => { carMesh = uploadOBJMesh(gl, parsed); })
     .catch(err   => { console.error('Falha ao carregar carro OBJ:', err); });
 
+  /* Banco OBJ (carregado de forma assíncrona) */
+  let benchMesh = null;
+  loadOBJ('js/objects/Bench_LowRes.obj')
+    .then(parsed => { benchMesh = uploadOBJMesh(gl, parsed); })
+    .catch(err   => { console.error('Falha ao carregar banco OBJ:', err); });
+
+  /* Lixeira OBJ (carregada de forma assíncrona) */
+  let trashMesh = null;
+  loadOBJ('js/objects/caixa%20de%20lixo.obj')
+    .then(parsed => { trashMesh = uploadOBJMesh(gl, parsed); })
+    .catch(err   => { console.error('Falha ao carregar lixeira OBJ:', err); });
+
   /* Seta OBJ (carregada de forma assíncrona) */
   window._arrowMesh = null;
   loadOBJ('js/objects/Arrow.obj')
@@ -482,6 +494,8 @@
       frameTime,
       get treeMesh()  { return treeMesh;  },  // lazy: ainda null após init
       get carMesh()   { return carMesh;   },  // lazy: ainda null após init
+      get benchMesh() { return benchMesh; },  // lazy: ainda null após init
+      get trashMesh() { return trashMesh; },  // lazy: ainda null após init
       get timeOfDay() { return timeOfDay; },  // mutable: Renderer.drawSkyObjects precisa
     };
 

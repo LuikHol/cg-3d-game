@@ -411,6 +411,7 @@ const City = (() => {
     function pushLamp(x, z, rotY)           { props.push({ type: 'lamp',     x, z, rotY }); }
     function pushHydrant(x, z)              { props.push({ type: 'hydrant',  x, z, rotY: 0 }); }
     function pushUtility(x, z, rotY, sx, sz){ props.push({ type: 'utility',  x, z, rotY, sx, sz }); }
+    function pushTrash(x, z, rotY, s)       { props.push({ type: 'trash',    x, z, rotY, s }); }
 
     for (let k = -120; k <= 120; k += 24) {
       if (Math.abs(k) < 10) continue;
@@ -437,6 +438,20 @@ const City = (() => {
     pushUtility(-54,  18, 0.0, 2.4, 1.6); pushUtility(-54, -18, 0.0, 2.2, 1.5);
     pushUtility( 18,  54, Math.PI*0.5, 2.5, 1.7); pushUtility(-18,  54, Math.PI*0.5, 2.3, 1.5);
     pushUtility( 18, -54, Math.PI*0.5, 2.5, 1.7); pushUtility(-18, -54, Math.PI*0.5, 2.3, 1.5);
+
+    /* Lixos espalhados (evitando centro das vias) */
+    const trashSpots = [
+      [ 12,  7, 0.1], [ -12, -7, 1.3], [ 28,  7, 0.7], [ -28, -7, 2.4],
+      [  7, 28, 2.1], [  -7,-28, 0.6], [ 46,  7, 1.8], [ -46, -7, 2.7],
+      [  7, 46, 0.2], [  -7,-46, 2.0], [ 58, 18, 1.4], [ -58, 18, 0.5],
+      [ 58,-18, 2.8], [ -58,-18, 1.1], [ 18, 58, 2.5], [ -18, 58, 1.9],
+      [ 18,-58, 0.9], [ -18,-58, 2.2], [ 34, 34, 0.4], [ -34, 34, 2.6],
+      [ 34,-34, 1.7], [ -34,-34, 0.8],
+    ];
+    for (let i = 0; i < trashSpots.length; i++) {
+      const t = trashSpots[i];
+      pushTrash(t[0], t[1], t[2], 0.0065 + (i % 3) * 0.0010);
+    }
     return props;
   }
   const cityProps = buildCityProps();
@@ -722,7 +737,7 @@ const City = (() => {
   }
 
   function drawPark(rc, frameTime, nightBlend) {
-    const { gl, loc, modelMat, IDX_COUNT, DISC_COUNT, bindMesh, bindDisc } = rc;
+    const { gl, loc, modelMat, normMat3, IDX_COUNT, DISC_COUNT, bindMesh, bindDisc, benchMesh } = rc;
     bindMesh();
     mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [PARK_CX, 0.03, PARK_CZ]);
     mat4.scale(modelMat, modelMat, [PARK_HW*2, 0.06, PARK_HZ*2]); _drawBox(rc, 0.68, 0.68, 0.64);
@@ -742,17 +757,37 @@ const City = (() => {
       [PARK_CX-4.2, PARK_CZ-2.6, 0.0], [PARK_CX-4.2, PARK_CZ+2.6, 0.0],
       [PARK_CX+4.2, PARK_CZ-2.6, Math.PI], [PARK_CX+4.2, PARK_CZ+2.6, Math.PI],
     ];
-    for (let i = 0; i < benches.length; i++) {
-      const bx=benches[i][0], bz=benches[i][1], by=benches[i][2];
-      mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [bx, 0.22, bz]);
-      mat4.rotateY(modelMat, modelMat, by); mat4.scale(modelMat, modelMat, [1.7, 0.12, 0.42]);
-      _drawBox(rc, 0.43, 0.30, 0.18);
-      mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [bx, 0.47, bz+(by===0.0?-0.18:0.18)]);
-      mat4.rotateY(modelMat, modelMat, by); mat4.scale(modelMat, modelMat, [1.7, 0.34, 0.12]);
-      _drawBox(rc, 0.40, 0.28, 0.16);
-      for (const lx of [-0.6, 0.6]) {
-        mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [bx+lx, 0.10, bz]);
-        mat4.scale(modelMat, modelMat, [0.10, 0.20, 0.10]); _drawBox(rc, 0.24, 0.24, 0.26);
+    if (benchMesh) {
+      bindOBJMesh(gl, loc, benchMesh);
+      gl.uniform1f(loc.uSpecular, 0.22);
+      gl.uniform3f(loc.uColor, 0.42, 0.36, 0.28);
+      gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+      for (let i = 0; i < benches.length; i++) {
+        const bx = benches[i][0], bz = benches[i][1], by = benches[i][2];
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [bx, 0.02, bz]);
+        mat4.rotateY(modelMat, modelMat, by + Math.PI * 0.5);
+        mat4.scale(modelMat, modelMat, [0.0085, 0.0085, 0.0085]);
+        gl.uniformMatrix4fv(loc.uModel, false, modelMat);
+        mat3.normalFromMat4(normMat3, modelMat);
+        gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+        drawOBJMesh(gl, benchMesh);
+      }
+      bindMesh();
+      gl.uniform1f(loc.uSpecular, 1.0);
+    } else {
+      for (let i = 0; i < benches.length; i++) {
+        const bx=benches[i][0], bz=benches[i][1], by=benches[i][2];
+        mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [bx, 0.22, bz]);
+        mat4.rotateY(modelMat, modelMat, by); mat4.scale(modelMat, modelMat, [1.7, 0.12, 0.42]);
+        _drawBox(rc, 0.43, 0.30, 0.18);
+        mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [bx, 0.47, bz+(by===0.0?-0.18:0.18)]);
+        mat4.rotateY(modelMat, modelMat, by); mat4.scale(modelMat, modelMat, [1.7, 0.34, 0.12]);
+        _drawBox(rc, 0.40, 0.28, 0.16);
+        for (const lx of [-0.6, 0.6]) {
+          mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [bx+lx, 0.10, bz]);
+          mat4.scale(modelMat, modelMat, [0.10, 0.20, 0.10]); _drawBox(rc, 0.24, 0.24, 0.26);
+        }
       }
     }
     for (const sz of [-1, 1]) {
@@ -766,7 +801,7 @@ const City = (() => {
   }
 
   function drawCityProps(rc, nightBlend) {
-    const { gl, loc, modelMat, camPos, bindMesh } = rc;
+    const { gl, loc, modelMat, normMat3, camPos, bindMesh, trashMesh } = rc;
     bindMesh();
     for (let i = 0; i < cityProps.length; i++) {
       const p = cityProps[i];
@@ -816,6 +851,29 @@ const City = (() => {
           mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [p.x, 0.65, p.z]);
           mat4.rotateY(modelMat, modelMat, p.rotY||0); mat4.translate(modelMat, modelMat, [0, 0, sz*0.50+0.03]);
           mat4.scale(modelMat, modelMat, [sx*0.62, 0.85, 0.04]); _drawBox(rc, 0.30, 0.33, 0.37);
+        }
+      } else if (p.type === 'trash') {
+        if (trashMesh) {
+          bindOBJMesh(gl, loc, trashMesh);
+          gl.uniform1f(loc.uSpecular, 0.25);
+          gl.uniform3f(loc.uColor, 0.44, 0.46, 0.48);
+          gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [p.x, 0.02, p.z]);
+          mat4.rotateY(modelMat, modelMat, p.rotY || 0);
+          const s = p.s || 0.0075;
+          mat4.scale(modelMat, modelMat, [s, s, s]);
+          gl.uniformMatrix4fv(loc.uModel, false, modelMat);
+          mat3.normalFromMat4(normMat3, modelMat);
+          gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+          drawOBJMesh(gl, trashMesh);
+          bindMesh();
+          gl.uniform1f(loc.uSpecular, 1.0);
+        } else {
+          mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [p.x, 0.22, p.z]);
+          mat4.scale(modelMat, modelMat, [0.20, 0.44, 0.20]); _drawBox(rc, 0.44, 0.46, 0.48);
+          mat4.identity(modelMat); mat4.translate(modelMat, modelMat, [p.x, 0.46, p.z]);
+          mat4.scale(modelMat, modelMat, [0.24, 0.04, 0.24]); _drawBox(rc, 0.30, 0.32, 0.34);
         }
       }
     }
