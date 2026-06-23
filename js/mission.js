@@ -398,7 +398,7 @@ const Mission = (() => {
 
   function _drawWaypointArrow(rc) {
     if (_mission.phase === 'done') return;
-    const { gl, loc, modelMat } = rc;
+    const { gl, loc, modelMat, normMat3 } = rc;
     const def = _mission.def;
     let tx, tz, ty;
     if (_mission.phase === 'pickup') {
@@ -427,27 +427,43 @@ const Mission = (() => {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
-    gl.uniform1f(loc.uAlpha, 0.55);
+    gl.uniform1f(loc.uAlpha, 0.85);
 
-    rc.bindMesh();
+    /* Se Arrow.obj foi carregado, renderiza o modelo */
+    if (window._arrowMesh) {
+      bindOBJMesh(gl, loc, window._arrowMesh);
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [_drone.pos[0], arrowY, _drone.pos[2]]);
+      mat4.rotateY(modelMat, modelMat, angle);
+      mat4.rotateX(modelMat, modelMat, -pitch + Math.PI);
+      mat4.scale(modelMat, modelMat, [0.45, 0.45, 0.45]);
+      gl.uniformMatrix4fv(loc.uModel, false, modelMat);
+      mat3.normalFromMat4(normMat3, modelMat);
+      gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+      gl.uniform3f(loc.uColor, ar, ag, ab);
+      drawOBJMesh(gl, window._arrowMesh);
+    } else {
+      /* Fallback: desenha com caixas se modelo não foi carregado */
+      rc.bindMesh();
 
-    /* Haste */
-    mat4.identity(modelMat);
-    mat4.translate(modelMat, modelMat, [_drone.pos[0], arrowY, _drone.pos[2]]);
-    mat4.rotateY(modelMat, modelMat, angle);
-    mat4.rotateX(modelMat, modelMat, -pitch);
-    mat4.translate(modelMat, modelMat, [0, 0, 0.32]);
-    mat4.scale(modelMat, modelMat, [0.10, 0.10, 0.45]);
-    _drawBox(rc, ar, ag, ab);
+      /* Haste */
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [_drone.pos[0], arrowY, _drone.pos[2]]);
+      mat4.rotateY(modelMat, modelMat, angle);
+      mat4.rotateX(modelMat, modelMat, -pitch);
+      mat4.translate(modelMat, modelMat, [0, 0, 0.32]);
+      mat4.scale(modelMat, modelMat, [0.10, 0.10, 0.45]);
+      _drawBox(rc, ar, ag, ab);
 
-    /* Cabeça */
-    mat4.identity(modelMat);
-    mat4.translate(modelMat, modelMat, [_drone.pos[0], arrowY, _drone.pos[2]]);
-    mat4.rotateY(modelMat, modelMat, angle);
-    mat4.rotateX(modelMat, modelMat, -pitch);
-    mat4.translate(modelMat, modelMat, [0, 0, -0.22]);
-    mat4.scale(modelMat, modelMat, [0.34, 0.15, 0.28]);
-    _drawBox(rc, ar, ag, ab);
+      /* Cabeça */
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [_drone.pos[0], arrowY, _drone.pos[2]]);
+      mat4.rotateY(modelMat, modelMat, angle);
+      mat4.rotateX(modelMat, modelMat, -pitch);
+      mat4.translate(modelMat, modelMat, [0, 0, -0.22]);
+      mat4.scale(modelMat, modelMat, [0.34, 0.15, 0.28]);
+      _drawBox(rc, ar, ag, ab);
+    }
 
     gl.depthMask(true);
     gl.disable(gl.BLEND);
