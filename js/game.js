@@ -146,6 +146,24 @@
     .then(parsed => { window._arrowMesh = uploadOBJMesh(gl, parsed); })
     .catch(err   => { console.error('Falha ao carregar seta OBJ:', err); });
 
+  /* Drone OBJ (carregada de forma assíncrona) */
+  window._droneMesh = null;
+  window._droneHelices = null;
+  loadOBJ('js/objects/drone.obj')
+    .then(parsed => { window._droneMesh = uploadOBJMesh(gl, parsed); })
+    .catch(err   => { console.error('Falha ao carregar drone OBJ:', err); });
+
+  /* Hélices individuais */
+  Promise.all(['helix1','helix2','helix3','helix4'].map(name =>
+    loadOBJ(`js/objects/${name}.obj`)
+      .then(parsed => ({ name, mesh: uploadOBJMesh(gl, parsed) }))
+      .catch(() => null)
+  )).then(results => {
+    const helices = {};
+    for (const r of results) if (r) helices[r.name] = r.mesh;
+    if (Object.keys(helices).length > 0) window._droneHelices = helices;
+  });
+
   /* Bind helpers – reativam os VBOs corretos para cada tipo de malha */
   function bindMesh() {
     gl.bindBuffer(gl.ARRAY_BUFFER, posVBO);

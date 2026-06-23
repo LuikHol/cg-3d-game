@@ -136,6 +136,68 @@ function parseOBJ(text) {
   };
 }
 
+/* ── parseOBJGroups ───────────────────────────────────────────────
+ * Igual ao parseOBJ mas retorna um mapa { nome: parsedData }
+ * para cada objeto nomeado com "o" no arquivo.
+ * Objetos sem nome ficam em "_default".
+ * ─────────────────────────────────────────────────────────────── */
+function parseOBJGroups(text) {
+  /* Divide o texto em blocos por "o <nome>" */
+  const sections = [];
+  let current = { name: '_default', lines: [] };
+  const lines = text.split('\n');
+
+  /* Acumula as declarações globais v/vn/vt antes do primeiro "o" */
+  const globalLines = [];
+  let firstO = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const parts = line.split(/\s+/);
+    if (parts[0] === 'o') {
+      if (!firstO) firstO = true;
+      sections.push(current);
+      current = { name: parts.slice(1).join(' ') || '_default', lines: [] };
+    } else {
+      if (!firstO && (parts[0] === 'v' || parts[0] === 'vn' || parts[0] === 'vt')) {
+        globalLines.push(line);
+      }
+      current.lines.push(line);
+    }
+  }
+  sections.push(current);
+
+  const result = {};
+  for (const sec of sections) {
+    if (sec.lines.length === 0) continue;
+    /* Injeta as declarações globais antes das faces de cada seção */
+    const merged = globalLines.concat(sec.lines).join('\n');
+    const parsed = parseOBJ(merged);
+    if (parsed.count > 0) {
+      /* Se já existe um grupo com esse nome, mescla */
+      if (result[sec.name]) {
+        const a = result[sec.name];
+        result[sec.name] = {
+          positions: _concatF32(a.positions, parsed.positions),
+          normals:   _concatF32(a.normals,   parsed.normals),
+          uvs:       _concatF32(a.uvs,       parsed.uvs),
+          count:     a.count + parsed.count,
+        };
+      } else {
+        result[sec.name] = parsed;
+      }
+    }
+  }
+  return result;
+}
+
+function _concatF32(a, b) {
+  const out = new Float32Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+}
+
 /* ── loadOBJ ──────────────────────────────────────────────────────
  * Faz fetch de um arquivo .obj e retorna a Promise do parseOBJ.
  * ─────────────────────────────────────────────────────────────── */

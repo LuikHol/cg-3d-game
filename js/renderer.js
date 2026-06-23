@@ -33,6 +33,32 @@ const Renderer = (() => {
   /* Matriz base do drone (reutilizada por frame) */
   const droneBase = mat4.create();
 
+  /* Textura body do drone */
+  let _droneBodyTex = null;
+  function _loadDroneBodyTex(gl) {
+    if (_droneBodyTex) return;
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([50, 50, 230, 255]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    const img = new Image();
+    img.onload = () => {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    };
+    img.src = 'js/textures/body.png';
+    _droneBodyTex = tex;
+  }
+
   function _createTextureFromCanvas(gl, canvas) {
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -388,33 +414,157 @@ const Renderer = (() => {
   }
 
   function drawDrone(rc) {
-    const { modelMat } = rc;
-    rc.bindMesh();
+    const { gl, loc, modelMat, normMat3 } = rc;
     _buildDroneBase();
 
-    /* Corpo principal */
-    mat4.copy(modelMat, droneBase);
-    mat4.scale(modelMat, modelMat, [1.8, 0.25, 1.8]);
-    _drawBox(rc, 0.15, 0.15, 0.80);
+    /* Se drone.obj foi carregado, renderiza o modelo */
+    if (window._droneMesh) {
+      _loadDroneBodyTex(gl);
 
-    /* Cúpula / cabine */
-    mat4.copy(modelMat, droneBase);
-    mat4.translate(modelMat, modelMat, [0, 0.22, 0]);
-    mat4.scale(modelMat, modelMat, [0.65, 0.35, 0.65]);
-    _drawBox(rc, 0.20, 0.20, 0.90);
+      /* Função auxiliar para renderizar uma mesh OBJ com textura */
+      function _renderDronePart(mesh, modelMatrix, color, useTex, specular) {
+        bindOBJMesh(gl, loc, mesh);
+        const textured = (useTex !== false);
+        if (textured) {
+          gl.bindBuffer(gl.ARRAY_BUFFER, mesh.uvVBO);
+          if (loc.aUV >= 0) { gl.enableVertexAttribArray(loc.aUV); gl.vertexAttribPointer(loc.aUV, 2, gl.FLOAT, false, 0, 0); }
+        }
+        gl.uniformMatrix4fv(loc.uModel, false, modelMatrix);
+        mat3.normalFromMat4(normMat3, modelMatrix);
+        gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+        const c = color || [1.0, 1.0, 1.0];
+        gl.uniform3f(loc.uColor, c[0], c[1], c[2]);
+        gl.uniform1f(loc.uSpecular, specular !== undefined ? specular : 1.0);
+        gl.uniform1f(loc.uUseTex, textured ? 1.0 : 0.0);
+        if (textured) {
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, _droneBodyTex);
+          gl.uniform1i(loc.uTex, 0);
+        }
+        drawOBJMesh(gl, mesh);
+      }
 
-    /* Indicador de nariz (amarelo) */
-    mat4.copy(modelMat, droneBase);
-    mat4.translate(modelMat, modelMat, [0, 0, -1.0]);
-    mat4.scale(modelMat, modelMat, [0.22, 0.18, 0.22]);
-    _drawBox(rc, 1.0, 0.85, 0.0);
+      /* Corpo */
+      const bodyMat = mat4.create();
+      mat4.copy(bodyMat, droneBase);
+      mat4.scale(bodyMat, bodyMat, [2.6, 2.6, 2.6]);
+      _renderDronePart(window._droneMesh, bodyMat, [1.0, 1.0, 1.0], true, 0.9);
 
-    /* Guardas das hélices (vermelho nos 4 cantos) */
-    for (let i = 0; i < PROP_LOCAL.length; i++) {
+      /* Hélices animadas (se existirem no OBJ) */
+      if (window._droneHelices) {
+        const t = rc.frameTime;
+        const spinSpeed = (Math.PI * 2) / 0.20833;
+        const spinA = -(t * spinSpeed) % (Math.PI * 2);
+        const spinB =  (t * spinSpeed) % (Math.PI * 2);
+          // offsets dos braços em espaço local (calculados do drone.obj)
+          const helixData = {
+            helix1: { offset: [-0.328, -0.070,  0.328], spin: spinA },
+            helix2: { offset: [ 0.344, -0.070,  0.344], spin: spinB },
+            helix3: { offset: [-0.328, -0.070, -0.328], spin: spinA },
+            helix4: { offset: [ 0.359, -0.070, -0.313], spin: spinB },
+          };
+          for (const [name, data] of Object.entries(helixData)) {
+            if (!window._droneHelices[name]) continue;
+            const hm = mat4.create();
+            mat4.copy(hm, droneBase);
+            mat4.scale(hm, hm, [2.6, 2.6, 2.6]);
+            mat4.translate(hm, hm, data.offset);
+            mat4.rotateY(hm, hm, data.spin);
+            _renderDronePart(window._droneHelices[name], hm, [0.74, 0.74, 0.74], false, 1.8);
+          }
+      }
+
+      gl.uniform1f(loc.uUseTex, 0.0);
+          gl.uniform1f(loc.uSpecular, 1.0);
+      if (loc.aUV >= 0) gl.disableVertexAttribArray(loc.aUV);
+    } else {
+      /* Fallback: desenha com caixas se modelo não foi carregado */
+      rc.bindMesh();
+
+      /* Corpo principal */
       mat4.copy(modelMat, droneBase);
-      mat4.translate(modelMat, modelMat, PROP_LOCAL[i]);
-      mat4.scale(modelMat, modelMat, [0.38, 0.10, 0.38]);
-      _drawBox(rc, 0.90, 0.15, 0.15);
+      mat4.scale(modelMat, modelMat, [1.8, 0.25, 1.8]);
+      _drawBox(rc, 0.15, 0.15, 0.80);
+
+      /* Cúpula / cabine */
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [0, 0.22, 0]);
+      mat4.scale(modelMat, modelMat, [0.65, 0.35, 0.65]);
+      _drawBox(rc, 0.20, 0.20, 0.90);
+
+      /* Indicador de nariz (amarelo) */
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [0, 0, -1.0]);
+      mat4.scale(modelMat, modelMat, [0.22, 0.18, 0.22]);
+      _drawBox(rc, 1.0, 0.85, 0.0);
+
+      /* Guardas das hélices (vermelho nos 4 cantos) */
+      for (let i = 0; i < PROP_LOCAL.length; i++) {
+        mat4.copy(modelMat, droneBase);
+        mat4.translate(modelMat, modelMat, PROP_LOCAL[i]);
+        mat4.scale(modelMat, modelMat, [0.38, 0.10, 0.38]);
+        _drawBox(rc, 0.90, 0.15, 0.15);
+      }
+    }
+
+    /* Caixa de entrega: aparece quando o drone está transportando */
+    const phase = (typeof Mission !== 'undefined' && Mission.state) ? Mission.state.phase : '';
+    const carrying = (phase === 'flying' || phase === 'delivery');
+    if (carrying) {
+      const cargoBob = Math.sin(rc.frameTime * 5.0) * 0.008;
+      rc.bindMesh();
+      gl.uniform1f(loc.uUseTex, 0.0);
+      gl.uniform1f(loc.uSpecular, 0.18);
+
+      // caixa maior (papelao)
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [0.0, -0.44 + cargoBob, 0.04]);
+      mat4.scale(modelMat, modelMat, [0.56, 0.36, 0.44]);
+      _drawBox(rc, 0.66, 0.50, 0.30);
+
+      // fita no topo
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [0.0, -0.24 + cargoBob, 0.04]);
+      mat4.scale(modelMat, modelMat, [0.58, 0.03, 0.08]);
+      _drawBox(rc, 0.82, 0.74, 0.56);
+
+      // sacola envolvendo a caixa (corpo)
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [0.0, -0.43 + cargoBob, 0.04]);
+      mat4.scale(modelMat, modelMat, [0.62, 0.40, 0.48]);
+      _drawBox(rc, 0.72, 0.66, 0.52);
+
+      // abertura superior da sacola
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [0.0, -0.22 + cargoBob, 0.04]);
+      mat4.scale(modelMat, modelMat, [0.54, 0.02, 0.40]);
+      _drawBox(rc, 0.83, 0.77, 0.63);
+
+      // alcas da sacola
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [-0.22, -0.16 + cargoBob, 0.04]);
+      mat4.scale(modelMat, modelMat, [0.03, 0.12, 0.03]);
+      _drawBox(rc, 0.56, 0.49, 0.36);
+
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [0.22, -0.16 + cargoBob, 0.04]);
+      mat4.scale(modelMat, modelMat, [0.03, 0.12, 0.03]);
+      _drawBox(rc, 0.56, 0.49, 0.36);
+
+      // bracinhos do drone segurando a sacola
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [-0.25, -0.02 + cargoBob * 0.5, 0.04]);
+      mat4.rotateZ(modelMat, modelMat, 0.28);
+      mat4.scale(modelMat, modelMat, [0.05, 0.30, 0.05]);
+      _drawBox(rc, 0.42, 0.42, 0.44);
+
+      mat4.copy(modelMat, droneBase);
+      mat4.translate(modelMat, modelMat, [0.25, -0.02 + cargoBob * 0.5, 0.04]);
+      mat4.rotateZ(modelMat, modelMat, -0.28);
+      mat4.scale(modelMat, modelMat, [0.05, 0.30, 0.05]);
+      _drawBox(rc, 0.42, 0.42, 0.44);
+
+      gl.uniform1f(loc.uSpecular, 1.0);
     }
   }
 
