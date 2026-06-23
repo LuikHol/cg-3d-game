@@ -253,6 +253,7 @@
   hudPause.addEventListener('click', e => { if (e.target === hudPause) setPaused(false); });
 
   const minimap = new MiniMap(200, 200);
+  minimap.initCityLayer(City);
 
   paused = true;
   hudPause.style.display = 'flex';

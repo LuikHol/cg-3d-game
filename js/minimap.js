@@ -46,9 +46,13 @@ class MiniMap {
   draw(dronePos, mission) {
     const ctx = this.ctx;
     
-    // Fundo quadrado
-    ctx.fillStyle = 'rgba(10, 10, 20, 0.9)';
-    ctx.fillRect(0, 0, this.size, this.size);
+    // Fundo: background estático da cidade (ou fallback sólido)
+    if (this._cityBg) {
+      ctx.drawImage(this._cityBg, 0, 0);
+    } else {
+      ctx.fillStyle = 'rgba(10, 10, 20, 0.9)';
+      ctx.fillRect(0, 0, this.size, this.size);
+    }
     
     // Grade de referência
     ctx.strokeStyle = 'rgba(100, 100, 120, 0.3)';
@@ -92,6 +96,7 @@ class MiniMap {
       }
     }
     
+    
     // Drone (vermelho/laranja)
     this.drawPoint(dronePos[0], dronePos[2], 7, '#ff4444', '⬤', true);
     
@@ -102,6 +107,99 @@ class MiniMap {
     ctx.fillText('MAP', this.centerX, this.size - 5);
   }
 
+  
+  initCityLayer(city) {
+    const bg  = document.createElement('canvas');
+    bg.width  = bg.height = this.size;
+    const bx  = bg.getContext('2d');
+    const S   = this.size;
+    const sc  = this.scale;
+    const wx  = x => this.centerX + x * sc;
+    const wz  = z => this.centerY + z * sc;
+
+    const RHM = city.ROAD_HALF_MAIN;
+    const RHS = city.ROAD_HALF_SEC;
+    const SWM = city.SIDEWALK_W_MAIN;
+    const SWS = city.SIDEWALK_W_SEC;
+
+    /* ── Grama ───────────────────────────────────────────────── */
+    bx.fillStyle = '#1a3a10';
+    bx.fillRect(0, 0, S, S);
+
+    /* ── Calçadas principais ─────────────────────────────────── */
+    bx.fillStyle = '#4a4a48';
+    for (const zSide of [RHM, -(RHM + SWM)]) {
+      bx.fillRect(0, wz(zSide), S, SWM * sc);
+    }
+    for (const xSide of [RHM, -(RHM + SWM)]) {
+      bx.fillRect(wx(xSide), 0, SWM * sc, S);
+    }
+
+    /* ── Calçadas secundárias ────────────────────────────────── */
+    bx.fillStyle = '#434341';
+    for (const zOff of [-40, 40]) {
+      for (const side of [1, -1]) {
+        bx.fillRect(0, wz(zOff + side * RHS), S, SWS * sc);
+      }
+    }
+    for (const xOff of [-40, 40]) {
+      for (const side of [1, -1]) {
+        bx.fillRect(wx(xOff + side * RHS), 0, SWS * sc, S);
+      }
+    }
+
+    /* ── Vias secundárias ────────────────────────────────────── */
+    bx.fillStyle = '#2e2e2e';
+    for (const zOff of [-40, 40]) {
+      bx.fillRect(0, wz(zOff - RHS), S, RHS * 2 * sc);
+    }
+    for (const xOff of [-40, 40]) {
+      bx.fillRect(wx(xOff - RHS), 0, RHS * 2 * sc, S);
+    }
+
+    /* ── Vias principais ─────────────────────────────────────── */
+    bx.fillStyle = '#333333';
+    bx.fillRect(0,          wz(-RHM), S,          RHM * 2 * sc);
+    bx.fillRect(wx(-RHM),   0,        RHM * 2 * sc, S);
+
+    /* ── Praça ───────────────────────────────────────────────── */
+    bx.fillStyle = '#2d6e18';
+    bx.fillRect(
+      wx(city.PARK_CX - city.PARK_HW), wz(city.PARK_CZ - city.PARK_HZ),
+      city.PARK_HW * 2 * sc,           city.PARK_HZ * 2 * sc
+    );
+
+    /* ── Prédios ─────────────────────────────────────────────── */
+    for (const b of city.buildings) {
+      const bw = b[2], bd = b[3];
+      const r  = Math.round(b[5] * 160 + 50);
+      const g  = Math.round(b[6] * 160 + 50);
+      const bl = Math.round(b[7] * 160 + 50);
+      bx.fillStyle   = `rgb(${r},${g},${bl})`;
+      bx.fillRect(wx(b[0] - bw / 2), wz(b[1] - bd / 2), bw * sc, bd * sc);
+      bx.strokeStyle = 'rgba(0,0,0,0.5)';
+      bx.lineWidth   = 0.5;
+      bx.strokeRect(wx(b[0] - bw / 2), wz(b[1] - bd / 2), bw * sc, bd * sc);
+    }
+
+    /* ── Árvores ─────────────────────────────────────────────── */
+    bx.fillStyle = '#3a8a22';
+    for (const t of city.treeInstances) {
+      const sx = wx(t.x), sz = wz(t.z);
+      if (sx < 0 || sx > S || sz < 0 || sz > S) continue;
+      bx.fillRect(sx - 1, sz - 1, 2, 2);
+    }
+
+    /* ── Grade de orientação suave ───────────────────────────── */
+    bx.strokeStyle = 'rgba(255,255,255,0.04)';
+    bx.lineWidth   = 0.5;
+    for (let i = -80; i <= 80; i += 20) {
+      bx.beginPath(); bx.moveTo(wx(i), 0);   bx.lineTo(wx(i), S);   bx.stroke();
+      bx.beginPath(); bx.moveTo(0,     wz(i)); bx.lineTo(S, wz(i)); bx.stroke();
+    }
+
+    this._cityBg = bg;
+  }
 
 
   /**
