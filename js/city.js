@@ -1,12 +1,14 @@
-/* ================================================================
-   city.js – dados e renderização da cidade
-   (prédios, árvores, props, colisões)
-   ================================================================ */
+﻿/*
+  city.js
+  Gera e renderiza a cidade procedural: prédios, ruas, parque, árvores, props e carros.
+  Também implementa a detecção de colisão do drone com os prédios.
+  Expõe: City (namespace global).
+*/
 
 const City = (() => {
   'use strict';
 
-  /* ── Constantes de layout ─────────────────────────────────────── */
+  // Constantes de layout
   const ROAD_HALF_MAIN  = 3.0;
   const ROAD_HALF_SEC   = 2.5;
   const SIDEWALK_W_MAIN = 2.2;
@@ -16,57 +18,57 @@ const City = (() => {
   const PARK_HW = 9.5;
   const PARK_HZ = 7.5;
 
-  /* ── Prédios ──────────────────────────────────────────────────── */
+  // Prédios
   const buildings = [
-    /* ── Quarteirão NE interno ── */
+    // Quarteirão NE interno
     [  9,  9, 4, 8,  8, 0.58, 0.56, 0.52],
     [ 15,  9, 5, 5, 12, 0.26, 0.38, 0.55],
     [  9, 15, 8, 3,  6, 0.70, 0.64, 0.50],
     [ 15, 15, 4, 4, 10, 0.54, 0.53, 0.54],
-    /* ── Quarteirão NO interno ── */
+    // Quarteirão NO interno
     [ -9,  9, 4, 8, 10, 0.58, 0.40, 0.32],
     [-15,  9, 5, 5,  7, 0.56, 0.56, 0.54],
     [ -9, 15, 8, 3,  5, 0.72, 0.66, 0.52],
     [-15, 15, 4, 4, 14, 0.30, 0.36, 0.52],
-    /* ── Quarteirão SE interno ── */
+    // Quarteirão SE interno
     [  9, -9, 4, 8,  9, 0.82, 0.80, 0.78],
     [ 15, -9, 5, 5,  6, 0.54, 0.53, 0.54],
     [  9,-15, 8, 3, 11, 0.28, 0.34, 0.50],
     [ 15,-15, 4, 4,  8, 0.62, 0.44, 0.34],
-    /* ── Quarteirão SO interno ── */
+    // Quarteirão SO interno
     [ -9, -9, 4, 8,  7, 0.56, 0.56, 0.54],
     [-15, -9, 5, 5, 13, 0.26, 0.38, 0.55],
     [ -9,-15, 8, 3,  5, 0.68, 0.62, 0.48],
     [-15,-15, 4, 4,  9, 0.32, 0.38, 0.52],
-    /* ── Quarteirão NE externo ── */
+    // Quarteirão NE externo
     [ 24, 10, 4, 9, 14, 0.26, 0.38, 0.55],
     [ 32, 10, 8, 4,  9, 0.60, 0.58, 0.55],
     [ 24, 18, 5, 5,  7, 0.70, 0.64, 0.50],
     [ 32, 22, 9, 4, 16, 0.30, 0.36, 0.52],
     [ 24, 30, 6, 6, 11, 0.58, 0.56, 0.54],
     [ 33, 30, 4, 8,  8, 0.62, 0.44, 0.34],
-    /* ── Quarteirão NO externo ── */
+    // Quarteirão NO externo
     [-24, 10, 4, 9, 12, 0.30, 0.36, 0.52],
     [-32, 10, 8, 4, 18, 0.26, 0.38, 0.55],
     [-24, 20, 5, 5,  7, 0.58, 0.56, 0.54],
     [-32, 24, 9, 4, 10, 0.70, 0.64, 0.50],
     [-25, 32, 5, 6, 13, 0.82, 0.80, 0.78],
     [-34, 30, 4, 8,  8, 0.60, 0.42, 0.32],
-    /* ── Quarteirão SE externo ── */
+    // Quarteirão SE externo
     [ 24,-10, 4, 9, 10, 0.58, 0.56, 0.54],
     [ 32,-12, 8, 4, 15, 0.28, 0.34, 0.50],
     [ 24,-20, 5, 5,  6, 0.70, 0.64, 0.50],
     [ 32,-28, 9, 4, 12, 0.82, 0.80, 0.78],
     [ 24,-33, 6, 6,  9, 0.58, 0.40, 0.32],
     [ 33,-33, 4, 8, 17, 0.26, 0.38, 0.55],
-    /* ── Quarteirão SO externo ── */
+    // Quarteirão SO externo
     [-24,-10, 4, 9,  8, 0.60, 0.58, 0.55],
     [-32,-12, 8, 4, 14, 0.30, 0.36, 0.52],
     [-24,-22, 5, 5, 10, 0.64, 0.44, 0.34],
     [-32,-26, 9, 4,  7, 0.56, 0.56, 0.54],
     [-25,-33, 5, 6, 11, 0.70, 0.64, 0.50],
     [-34,-33, 4, 8, 16, 0.28, 0.34, 0.50],
-    /* ── Torres marcantes espalhadas ── */
+    // Torres marcantes espalhadas
     [  0,  47, 7, 7, 22, 0.82, 0.80, 0.78],
     [ 47,   0, 5, 9, 28, 0.24, 0.34, 0.52],
     [-47,   0, 9, 5, 18, 0.60, 0.58, 0.55],
@@ -77,31 +79,31 @@ const City = (() => {
     [-47, -47, 5, 5, 19, 0.82, 0.80, 0.78],
     /* Mega-torre central */
     [  0,   0, 8, 8, 35, 0.20, 0.26, 0.40],
-    /* ── Anel externo NE ── */
+    // Anel externo NE
     [ 58,  55, 5, 9, 16, 0.60, 0.58, 0.55],
     [ 68,  55, 8, 4, 12, 0.26, 0.38, 0.55],
     [ 58,  65, 5, 5, 20, 0.28, 0.34, 0.50],
     [ 72,  65, 4, 4,  9, 0.70, 0.64, 0.50],
     [ 63,  72, 6, 5, 14, 0.82, 0.80, 0.78],
-    /* ── Anel externo NO ── */
+    // Anel externo NO
     [-58,  55, 5, 9, 18, 0.30, 0.36, 0.52],
     [-68,  55, 8, 4, 11, 0.58, 0.40, 0.32],
     [-58,  65, 5, 5, 22, 0.24, 0.34, 0.52],
     [-72,  65, 4, 4, 10, 0.70, 0.64, 0.50],
     [-63,  72, 6, 5, 15, 0.60, 0.58, 0.55],
-    /* ── Anel externo SE ── */
+    // Anel externo SE
     [ 58, -55, 5, 9, 14, 0.58, 0.56, 0.54],
     [ 68, -55, 8, 4, 19, 0.26, 0.38, 0.55],
     [ 58, -65, 5, 5, 10, 0.70, 0.64, 0.50],
     [ 72, -65, 4, 4, 16, 0.30, 0.36, 0.52],
     [ 63, -72, 6, 5, 13, 0.82, 0.80, 0.78],
-    /* ── Anel externo SO ── */
+    // Anel externo SO
     [-58, -55, 5, 9, 17, 0.60, 0.58, 0.55],
     [-68, -55, 8, 4, 10, 0.58, 0.40, 0.32],
     [-58, -65, 5, 5, 21, 0.28, 0.34, 0.50],
     [-72, -65, 4, 4,  8, 0.70, 0.64, 0.50],
     [-63, -72, 6, 5, 12, 0.82, 0.80, 0.78],
-    /* ── Torres de borda ── */
+    // Torres de borda
     [  0,  72, 6, 6, 18, 0.30, 0.36, 0.52],
     [  0, -72, 6, 6, 16, 0.60, 0.58, 0.55],
     [ 72,   0, 9, 5, 22, 0.24, 0.34, 0.52],
@@ -207,7 +209,7 @@ const City = (() => {
 
   redistributeBuildingsOnGrass();
 
-  /* ── Árvores ──────────────────────────────────────────────────── */
+  // Árvores
   let treeInstances = [];
 
   function _treeRadiusFromScale(scale) {
@@ -325,7 +327,7 @@ const City = (() => {
     }
   }
 
-  /* ── Colisão ──────────────────────────────────────────────────── */
+  // Colisão
   const BUILDING_Y_MARGIN = 1.8;
   const TREE_Y_MARGIN = 8.0;
 
@@ -429,7 +431,7 @@ const City = (() => {
     return { hitX, hitZ, hitAny: hitX || hitZ };
   }
 
-  /* ── Props da cidade ──────────────────────────────────────────── */
+  // Props da cidade
   function buildCityProps() {
     const props = [];
     const mainSide = ROAD_HALF_MAIN + SIDEWALK_W_MAIN * 0.52;
@@ -516,7 +518,7 @@ const City = (() => {
   }
   const carInstances = buildCarInstances();
 
-  /* ── LOD ──────────────────────────────────────────────────────── */
+  // LOD
   const BUILDING_SIMPLIFY_DIST2 = 95 * 95;
   const BUILDING_CULL_DIST2     = 170 * 170;
   const WINDOW_LIGHT_CULL_DIST2 = 115 * 115;
@@ -528,7 +530,7 @@ const City = (() => {
   const PROP_SPARSIFY_DIST2     = 120 * 120;
   const CAR_CULL_DIST2  = 130 * 130;
 
-  /* ── Dados de janelas ─────────────────────────────────────────── */
+  // Dados de janelas
   const buildingWindowData = (function () {
     function addFaceWindows(wins, cx, cz, fw, fd, yBase, blockH, wtype) {
       const rows = Math.min(Math.max(1, Math.floor(blockH / 4.5)), 5);
@@ -575,7 +577,7 @@ const City = (() => {
     });
   })();
 
-  /* ── Funções de desenho ───────────────────────────────────────── */
+  // Funções de desenho
 
   function drawBuildings(rc, nightBlend) {
     const { gl, loc, modelMat, normMat3, camPos, IDX_COUNT, bindMesh } = rc;
@@ -972,7 +974,7 @@ const City = (() => {
     rc.bindMesh();
   }
 
-  /* ── Helper interno ───────────────────────────────────────────── */
+  // Helper interno
   function _drawBox(rc, r, g, b) {
     const { gl, loc, modelMat, normMat3, IDX_COUNT } = rc;
     gl.uniformMatrix4fv(loc.uModel, false, modelMat);
@@ -982,7 +984,7 @@ const City = (() => {
     gl.drawElements(gl.TRIANGLES, IDX_COUNT, gl.UNSIGNED_SHORT, 0);
   }
 
-  /* ── API pública ──────────────────────────────────────────────── */
+  // API pública
   return {
     buildings,
     get treeInstances() { return treeInstances; },

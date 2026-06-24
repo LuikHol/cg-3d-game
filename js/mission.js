@@ -1,15 +1,17 @@
-/* ================================================================
-   mission.js – dados, lógica e renderização das missões
-   Depende: gl-matrix (mat4, mat3), sendo chamado de game.js
-   Expõe: Mission (namespace global)
-   ================================================================ */
+﻿/*
+  mission.js
+  Dados, lógica e renderização das missões do jogo.
+  Gerencia fases (coleta, vôo, entrega), pontuação, aros, diálogos e HUD.
+  Depende: gl-matrix (mat4, mat3).
+  Expõe: Mission (namespace global).
+*/
 
 const Mission = (() => {
   'use strict';
 
-  /* ── Definições das missões ───────────────────────────────────── */
+  // Definições das missões 
   const MISSION_DEFS = [
-    /* ─── Missão 1 · Iniciante · 3 aros ─────────────────────────── */
+    // Missão 1 · Iniciante · 3 aros 
     {
       decay   : 40,
       hitPad  : 0.80,
@@ -17,11 +19,11 @@ const Mission = (() => {
       delivery: { x:  70, z:  71, r: 6 },
       hoops: [
         { pos: [-40, 24, -40], radius: 7,   angle:  45, tilt:  0 },
-        { pos: [  0, 82,   0], radius: 7,   angle:  45, tilt:  0 },
+        { pos: [  0, 36,   0], radius: 7,   angle:  45, tilt:  0 },
         { pos: [ 40, 24,  40], radius: 7,   angle:  45, tilt:  0 },
       ],
     },
-    /* ─── Missão 2 · Fácil · 4 aros ─────────────────────────────── */
+    // Missão 2 · Fácil · 4 aros 
     {
       decay   : 60,
       hitPad  : 0.55,
@@ -34,7 +36,7 @@ const Mission = (() => {
         { pos: [ 40, 24,   0], radius: 6.5, angle:  90, tilt:  0 },
       ],
     },
-    /* ─── Missão 3 · Médio · 5 aros ─────────────────────────────── */
+    // Missão 3 · Médio · 5 aros 
     {
       decay   : 85,
       hitPad  : 0.35,
@@ -48,7 +50,7 @@ const Mission = (() => {
         { pos: [ 40, 22,  40], radius: 6,   angle:  45, tilt:   0 },
       ],
     },
-    /* ─── Missão 4 · Difícil · 6 aros ───────────────────────────── */
+    // Missão 4 · Difícil · 6 aros 
     {
       decay   : 115,
       hitPad  : 0.20,
@@ -63,7 +65,7 @@ const Mission = (() => {
         { pos: [-40, 24,  40], radius: 5.5, angle: 135, tilt:   0 },
       ],
     },
-    /* ─── Missão 5 · Expert · 8 aros ────────────────────────────── */
+    // Missão 5 · Expert · 8 aros 
     {
       decay   : 160,
       hitPad  : 0.05,
@@ -82,13 +84,13 @@ const Mission = (() => {
     },
   ];
 
-  /* ── Constantes ───────────────────────────────────────────────── */
+  // Constantes 
   const FILL_TIME       = 0.5;
   const SCORE_PER_HOOP  = 1000;
   const SCORE_DECAY     = 80;
   const BOOST_SPEED     = 12;
 
-  /* ── Estado interno ───────────────────────────────────────────── */
+  // Estado interno 
   let _drone      = null;   // referência ao objeto drone de game.js
   let _missionIdx = 0;
   let _mission    = null;
@@ -100,7 +102,7 @@ const Mission = (() => {
   let _missionResults = [];
   let _finalSummary = null;
 
-  /* ── Diálogo estilo visual novel (aceite da missão) ──────────── */
+  // Diálogo estilo visual novel (aceite da missão) 
   const PICKUP_DIALOGUES = [
     { name: 'Maka',          title: 'Moradora',      portrait: 'js/textures/maka.png',         line: 'Oi piloto! Quero que entregue essa minha encomenda com cuidado, por favor.' },
     { name: 'Soul',          title: 'Cliente',       portrait: 'js/textures/soul.png',         line: 'Valeu por aceitar! Essa entrega é urgente, preciso dela ainda hoje.' },
@@ -235,7 +237,7 @@ const Mission = (() => {
     _vn.continueBtn.style.display = 'inline-block';
   }
 
-  /* ── HUD (lazy) ───────────────────────────────────────────────── */
+  // HUD (lazy) 
   let _hud = null;
   function getHud() {
     if (!_hud) {
@@ -252,7 +254,7 @@ const Mission = (() => {
     return _hud;
   }
 
-  /* ── Geometria dos aros (normais pré-computadas) ──────────────── */
+  // Geometria dos aros (normais pré-computadas) 
   function _computeNormals(def) {
     def.hoops.forEach(h => {
       if (!h.normal) {
@@ -267,7 +269,7 @@ const Mission = (() => {
     });
   }
 
-  /* ── Distância assinada ao plano do aro ───────────────────────── */
+  // Distância assinada ao plano do aro 
   function signedDist(pos, h) {
     const n = h.normal;
     return (pos[0] - h.pos[0]) * n[0]
@@ -275,7 +277,7 @@ const Mission = (() => {
          + (pos[2] - h.pos[2]) * n[2];
   }
 
-  /* ── Distância radial ao centro do aro ───────────────────────── */
+  // Distância radial ao centro do aro 
   function radialDist(pos, h) {
     const dx = pos[0] - h.pos[0];
     const dy = pos[1] - h.pos[1];
@@ -288,7 +290,7 @@ const Mission = (() => {
     return Math.sqrt(px*px + py*py + pz*pz);
   }
 
-  /* ── Constrói estado inicial de uma missão ────────────────────── */
+  // Constrói estado inicial de uma missão 
   function buildMissionState(idx) {
     const def = MISSION_DEFS[idx];
     _computeNormals(def);
@@ -311,9 +313,9 @@ const Mission = (() => {
   function scoreToRank(s) {
     const maxS = (_mission ? _mission.def.hoops.length : MISSION_DEFS[0].hoops.length) * SCORE_PER_HOOP + 500;
     const ratio = s / maxS;
-    if (ratio >= 0.88) return { letter: 'S', color: '#ffd700', value: 4 };
-    if (ratio >= 0.72) return { letter: 'A', color: '#4f4',    value: 3 };
-    if (ratio >= 0.55) return { letter: 'B', color: '#4af',    value: 2 };
+    if (ratio >= 0.75) return { letter: 'S', color: '#ffd700', value: 4 };
+    if (ratio >= 0.58) return { letter: 'A', color: '#4f4',    value: 3 };
+    if (ratio >= 0.42) return { letter: 'B', color: '#4af',    value: 2 };
     return               { letter: 'C', color: '#f84',    value: 1 };
   }
 
@@ -345,7 +347,7 @@ const Mission = (() => {
     }
   }
 
-  /* ── Lógica por frame ─────────────────────────────────────────── */
+  // Lógica por frame 
   function update(dt) {
     const pos   = _drone.pos;
     const def   = _mission.def;
@@ -361,7 +363,7 @@ const Mission = (() => {
       _mission.score = Math.max(0, SCORE_PER_HOOP - Math.floor(_mission.hoopTimer * decay));
     }
 
-    /* Detecção de cruzamento dos aros */
+  // detecção de cruzamento dos aros
     for (let i = 0; i < hoops.length; i++) {
       const h        = hoops[i];
       const currDist = signedDist(pos, h);
@@ -386,7 +388,7 @@ const Mission = (() => {
       _mission.prevDists[i] = currDist;
     }
 
-    /* Zona de coleta */
+  // zona de coleta
     if (_mission.phase === 'pickup') {
       const dx = pos[0] - def.pickup.x, dz = pos[2] - def.pickup.z;
       const inZone = Math.sqrt(dx*dx + dz*dz) < def.pickup.r && pos[1] > 0.5 && pos[1] < 12;
@@ -408,7 +410,7 @@ const Mission = (() => {
       }
     }
 
-    /* Zona de entrega */
+  // zona de entrega
     if (_mission.phase === 'delivery') {
       const dx = pos[0] - def.delivery.x, dz = pos[2] - def.delivery.z;
       const inZone = Math.sqrt(dx*dx + dz*dz) < def.delivery.r && pos[1] > 0.5 && pos[1] < 12;
@@ -423,7 +425,7 @@ const Mission = (() => {
       }
     }
 
-    /* HUD */
+    // HUD
     const hud     = getHud();
     const total   = MISSION_DEFS.length;
     const current = _missionIdx + 1;
@@ -495,9 +497,9 @@ const Mission = (() => {
     _updateVN(dt);
   }
 
-  /* ── Helpers de draw internos ─────────────────────────────────── */
-  /* rc = { gl, loc, modelMat, normMat3, IDX_COUNT, DISC_COUNT, TOR_IDX_COUNT,
-            bindMesh, bindDisc, bindTorus, frameTime }              */
+  // Helpers de draw internos 
+  // helpers internos de draw
+  // rc = { gl, loc, modelMat, normMat3, IDX_COUNT, DISC_COUNT, TOR_IDX_COUNT, bindMesh, bindDisc, bindTorus, frameTime }
 
   function _drawBox(rc, r, g, b) {
     const { gl, loc, modelMat, normMat3, IDX_COUNT } = rc;
@@ -527,7 +529,7 @@ const Mission = (() => {
     gl.drawElements(gl.TRIANGLES, TOR_IDX_COUNT, gl.UNSIGNED_SHORT, 0);
   }
 
-  /* ── Renderização ─────────────────────────────────────────────── */
+  // Renderização 
 
   function _nightBlendFromTimeOfDay(timeOfDay) {
     const tod = (typeof timeOfDay === 'number') ? timeOfDay : 0.5;
@@ -633,7 +635,7 @@ const Mission = (() => {
     gl.uniform1f(loc.uAlpha, arrowAlpha);
     _setEmissive(rc, ar, ag, ab, arrowEmissive);
 
-    /* Se Arrow.obj foi carregado, renderiza o modelo */
+    // seta indicadora de destino (waypoint)
     if (window._arrowMesh) {
       bindOBJMesh(gl, loc, window._arrowMesh);
       mat4.identity(modelMat);
@@ -647,10 +649,10 @@ const Mission = (() => {
       gl.uniform3f(loc.uColor, ar, ag, ab);
       drawOBJMesh(gl, window._arrowMesh);
     } else {
-      /* Fallback: desenha com caixas se modelo não foi carregado */
+      // fallback: seta em caixas
       rc.bindMesh();
 
-      /* Haste */
+      // haste
       mat4.identity(modelMat);
       mat4.translate(modelMat, modelMat, [_drone.pos[0], arrowY, _drone.pos[2]]);
       mat4.rotateY(modelMat, modelMat, angle);
@@ -659,7 +661,7 @@ const Mission = (() => {
       mat4.scale(modelMat, modelMat, [0.10, 0.10, 0.45]);
       _drawBox(rc, ar, ag, ab);
 
-      /* Cabeça */
+      // cabeça
       mat4.identity(modelMat);
       mat4.translate(modelMat, modelMat, [_drone.pos[0], arrowY, _drone.pos[2]]);
       mat4.rotateY(modelMat, modelMat, angle);
@@ -909,7 +911,7 @@ const Mission = (() => {
     const nightBlend = _nightBlendFromTimeOfDay(rc.timeOfDay);
     const neonPulse = 0.92 + 0.16 * (0.5 + 0.5 * Math.sin(rc.frameTime * 5.4));
 
-    /* ── Zonas no chão ────────────────────────────────────────── */
+    // Zonas no chão 
     rc.bindDisc();
     if (ph === 'pickup') {
       _setEmissive(rc, 0.10, 1.00, 0.30, (0.14 + nightBlend * 0.52) * neonPulse);
@@ -932,7 +934,7 @@ const Mission = (() => {
       );
     }
 
-    /* ── Auras transparentes ──────────────────────────────────── */
+    // Auras transparentes 
     rc.bindDisc();
     if (ph === 'pickup') {
       _setEmissive(rc, 0.12, 1.00, 0.36, (0.18 + nightBlend * 0.56) * neonPulse);
@@ -952,7 +954,7 @@ const Mission = (() => {
 
     if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
 
-    /* ── Aros (toro) ──────────────────────────────────────────── */
+    // Aros (toro) 
     if (ph === 'flying') {
       rc.bindTorus();
       for (let i = 0; i < def.hoops.length; i++) {
@@ -968,17 +970,17 @@ const Mission = (() => {
 
     if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
 
-    /* ── Item flutuante da missão 1 ───────────────────────────── */
+    // Item flutuante da missão 1 
     _drawMissionOneFloatingGift(rc);
 
-    /* ── Item flutuante da missão 2 ───────────────────────────── */
+    // Item flutuante da missão 2 
     // _drawMissionTwoFloatingHeart(rc);
 
-    /* ── Seta de waypoint ─────────────────────────────────────── */
+    // Seta de waypoint 
     _drawWaypointArrow(rc);
   }
 
-  /* ── API pública ──────────────────────────────────────────────── */
+  // API pública 
   function isDialogueBlocking() {
     return !!(_mission && _mission._acceptPending);
   }

@@ -1,6 +1,8 @@
-/* ================================================================
-   menu-entry.js - controla entrada no jogo a partir do menu
-   ================================================================ */
+/*
+  menu-entry.js
+  Autoriza a navegação para jogo.html gravando uma flag no sessionStorage.
+  Sem essa flag, jogo.html redireciona automaticamente para o menu.
+*/
 
 (function () {
   'use strict';

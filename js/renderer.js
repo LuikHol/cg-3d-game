@@ -1,16 +1,18 @@
-/* ================================================================
-   renderer.js – renderização de céu, chão/ruas e drone
-   Expõe: Renderer (namespace global)
-   Depende: gl-matrix, City (City.ROAD_HALF_MAIN etc.)
-   ================================================================ */
+﻿/*
+  renderer.js
+  Renderiza céu, chão/ruas, drone e crosswalks usando WebGL.
+  Ciclo dia/noite com sol e lua, névoa atmosférica, textura de grama e OBJ do drone.
+  Depende: gl-matrix, City (constantes de layout de ruas).
+  Expõe: Renderer (namespace global).
+*/
 
 const Renderer = (() => {
   'use strict';
 
-  /* ── Constante de órbita solar/lunar ─────────────────────────── */
+  // Constante de órbita solar/lunar
   const LIGHT_R = 120;  // exposto para game.js calcular lightPos
 
-  /* ── Estado interno ───────────────────────────────────────────── */
+  // Estado interno
   let _drone = null;
   const _sky = {
     gl      : null,
@@ -270,7 +272,7 @@ const Renderer = (() => {
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
   }
 
-  /* ── Helper de draw interno ───────────────────────────────────── */
+  // Helper de draw interno
   /* rc = { gl, loc, modelMat, normMat3, IDX_COUNT, bindMesh, timeOfDay } */
   function _drawBox(rc, r, g, b) {
     const { gl, loc, modelMat, normMat3, IDX_COUNT } = rc;
@@ -281,7 +283,7 @@ const Renderer = (() => {
     gl.drawElements(gl.TRIANGLES, IDX_COUNT, gl.UNSIGNED_SHORT, 0);
   }
 
-  /* ── Interpolação da cor do céu ───────────────────────────────── */
+  // Interpolação da cor do céu
   function skyColor(t) {
     const keys = [
       [0.00, 0.05, 0.07, 0.22],  // meia-noite – azul noturno
@@ -310,7 +312,7 @@ const Renderer = (() => {
     return [0.38, 0.72, 0.98];
   }
 
-  /* ── Sol e Lua ────────────────────────────────────────────────── */
+  // Sol e Lua
   /* sunX/Y/Z pré-calculados em game.js; timeOfDay vem em rc        */
   function drawSkyObjects(rc, sunHeight, nightBlend, sunX, sunY, sunZ) {
     const { gl, loc } = rc;
@@ -322,7 +324,7 @@ const Renderer = (() => {
 
     _bindSkyMesh(rc);
 
-    /* ── Sol ────────────────────────────────────────────────────── */
+    // Sol
     if (sunHeight > -0.02) {
       const fade = Math.min(1.0, Math.max(0.0, (sunHeight + 0.02) / 0.16));
       const t    = Math.max(0.0, Math.min(1.0, sunHeight * 3.0));
@@ -337,7 +339,7 @@ const Renderer = (() => {
       );
     }
 
-    /* ── Lua ────────────────────────────────────────────────────── */
+    // Lua
     if (nightBlend > 0.15) {
       const moonAngle = (rc.timeOfDay - 0.25 + 0.52) * Math.PI * 2;
       const mx = Math.cos(moonAngle) * LIGHT_R * 0.92;
@@ -367,7 +369,7 @@ const Renderer = (() => {
     gl.enable(gl.CULL_FACE);
   }
 
-  /* ── Chão e Ruas ──────────────────────────────────────────────── */
+  // Chão e Ruas
   function drawGroundAndRoads(rc, nightBlend) {
     const { gl, loc, modelMat } = rc;
     rc.bindMesh();
@@ -398,7 +400,7 @@ const Renderer = (() => {
     mat4.translate(modelMat, modelMat, [0, 0.02, 0]);
     mat4.scale(modelMat, modelMat, [300, 0.04, 6]);
     _drawBox(rc, 0.22, 0.22, 0.22);
-    
+
     // Calçadas em segmentos, pulando cruzamentos
     const xGap = 4.5;  // distância para pular nos cruzamentos
     for (const zSide of [RHM + SWM * 0.5, -(RHM + SWM * 0.5)]) {
@@ -490,7 +492,7 @@ const Renderer = (() => {
         const isWhite = (i % 2 === 0);
         const [r, g, b] = isWhite ? WHITE : ROAD_COLOR;
         const stripeLength = totalLength / STRIPE_COUNT;
-        
+
         if (stripeAxis === 'z') {
           // Faixa estende em Z (via corre em X, rua vai em Z)
           const offset = -totalLength / 2 + i * stripeLength + stripeLength / 2;
@@ -527,7 +529,7 @@ const Renderer = (() => {
     }
   }
 
-  /* ── Drone ────────────────────────────────────────────────────── */
+  // Drone
   function _buildDroneBase() {
     mat4.identity(droneBase);
     mat4.translate(droneBase, droneBase, _drone.pos);
@@ -723,7 +725,7 @@ const Renderer = (() => {
     }
   }
 
-  /* ── API pública ──────────────────────────────────────────────── */
+  // API pública
   return {
     LIGHT_R,   // usado por game.js para calcular lightPos / sunAngle
 

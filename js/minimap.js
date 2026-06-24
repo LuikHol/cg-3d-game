@@ -1,12 +1,15 @@
-/* ================================================================
-   minimapa.js – Minimapa 2D em Canvas mostrando drone e missões
-   ================================================================ */
+/*
+  minimap.js
+  Minimapa 2D em canvas sobreposto ao jogo.
+  Exibe posição do drone, pontos de coleta/entrega e aros da missão atual.
+  A camada de fundo da cidade é pré-renderizada uma vez em initCityLayer().
+*/
 
 class MiniMap {
   constructor(size = 200) {
     this.size = size;
     
-    // Cria o canvas do minimapa
+    // cria e posiciona o canvas do minimapa
     this.canvas = document.createElement('canvas');
     this.canvas.width = size;
     this.canvas.height = size;
@@ -21,7 +24,7 @@ class MiniMap {
     this.ctx = this.canvas.getContext('2d');
     document.body.appendChild(this.canvas);
     
-    // Repositiona o HUD de missão para embaixo do minimapa
+    // reposiciona o HUD de missão abaixo do minimapa
     const missionHud = document.getElementById('mission-hud');
     if (missionHud) {
       missionHud.style.position = 'fixed';
@@ -32,21 +35,16 @@ class MiniMap {
       missionHud.style.bottom = 'auto';
     }
     
-    // Escala: mapeia coordenadas 3D do mundo para pixels do minimapa
+    // escala: pixels por unidade de mundo
     this.scale = 1.2; // pixels por unidade de mundo
     this.centerX = size / 2;
     this.centerY = size / 2;
   }
 
-  /**
-   * Desenha o minimapa com drone, pontos de coleta/entrega e aros
-   * @param {Array} dronePos - Posição do drone [x, y, z]
-   * @param {Object} mission - Objeto de missão com def e phase
-   */
   draw(dronePos, mission) {
     const ctx = this.ctx;
-    
-    // Fundo: background estático da cidade (ou fallback sólido)
+
+    // fundo
     if (this._cityBg) {
       ctx.drawImage(this._cityBg, 0, 0);
     } else {
@@ -54,7 +52,7 @@ class MiniMap {
       ctx.fillRect(0, 0, this.size, this.size);
     }
     
-    // Grade de referência
+    // grade de referência
     ctx.strokeStyle = 'rgba(100, 100, 120, 0.3)';
     ctx.lineWidth = 0.5;
     for (let i = -80; i <= 80; i += 20) {
@@ -70,17 +68,17 @@ class MiniMap {
       ctx.stroke();
     }
     
-    // Desenha a missão atual se existir
+    // pontos da missão atual
     if (mission && mission.def) {
       const def = mission.def;
       
-      // Ponto de coleta (verde)
+      // coleta (verde)
       this.drawPoint(def.pickup.x, def.pickup.z, 5, '#00ff00', '◆');
-      
-      // Ponto de entrega (azul)
+
+      // entrega (azul)
       this.drawPoint(def.delivery.x, def.delivery.z, 5, '#00aaff', '◆');
       
-      // Aros - só mostra quando em flying ou delivery
+      // aros (apenas durante vôo e entrega)
       if (mission.phase === 'flying' || mission.phase === 'delivery') {
         for (let i = 0; i < def.hoops.length; i++) {
           const hoop = def.hoops[i];
@@ -95,9 +93,7 @@ class MiniMap {
         }
       }
     }
-    
-    
-    // Drone (vermelho/laranja)
+    // drone
     this.drawPoint(dronePos[0], dronePos[2], 7, '#ff4444', '⬤', true);
     
     // Labels
@@ -202,23 +198,14 @@ class MiniMap {
   }
 
 
-  /**
-   * Desenha um ponto no minimapa
-   * @param {number} worldX
-   * @param {number} worldZ
-   * @param {number} radius
-   * @param {string} color
-   * @param {string} label
-   * @param {boolean} highlight
-   */
   drawPoint(worldX, worldZ, radius, color, label, highlight = false) {
     const screenX = this.worldToScreenX(worldX);
     const screenY = this.worldToScreenY(worldZ);
-    
-    // Verifica se está dentro do quadrado do minimapa
+
+    // descarta pontos fora dos limites
     if (screenX < 2 || screenX > this.size - 2 || screenY < 2 || screenY > this.size - 2) return;
     
-    // Desenha halo se for highlight (drone)
+    // halo no drone
     if (highlight) {
       this.ctx.strokeStyle = 'rgba(255, 100, 100, 0.5)';
       this.ctx.lineWidth = 2;
@@ -227,42 +214,32 @@ class MiniMap {
       this.ctx.stroke();
     }
     
-    // Círculo preenchido
+    // círculo
     this.ctx.fillStyle = color;
     this.ctx.beginPath();
     this.ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
     this.ctx.fill();
     
-    // Bordas
+    // borda
     this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
     this.ctx.lineWidth = 1;
     this.ctx.stroke();
   }
 
-  /**
-   * Converte coordenada X do mundo para pixel da tela
-   */
   worldToScreenX(x) {
     return this.centerX + (x * this.scale);
   }
 
-  /**
-   * Converte coordenada Z do mundo para pixel da tela (invertido para match visual)
-   */
   worldToScreenY(z) {
     return this.centerY + (z * this.scale);
   }
 
-  /**
-   * Ajusta a opacidade do minimapa
-   */
+  // ajusta opacidade (mais baixa quando pausado)
   setOpacity(isPaused) {
     this.canvas.style.opacity = isPaused ? '0.4' : '1';
   }
 
-  /**
-   * Remove o minimapa do DOM
-   */
+  // remove o canvas do DOM
   destroy() {
     if (this.canvas && this.canvas.parentNode) {
       this.canvas.parentNode.removeChild(this.canvas);

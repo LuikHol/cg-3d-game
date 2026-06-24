@@ -5,15 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Delivered by Drones - Controles</title>
   <link rel="stylesheet" href="menu.css" />
+  <style>body { background: #0d1a2e; }</style>
 </head>
 <body>
-  <div class="city-static" aria-hidden="true">
-    <div class="sun"></div>
-    <div class="haze"></div>
-    <div class="skyline skyline-back"></div>
-    <div class="skyline skyline-mid"></div>
-    <div class="road"></div>
-  </div>
+  <canvas id="menu-canvas" aria-hidden="true"></canvas>
 
   <main class="subpage-shell">
     <section class="subpage-card" aria-label="Controles do jogo">
@@ -34,6 +29,13 @@
       </nav>
     </section>
   </main>
+  <script src="js/lib/gl-matrix-min.js"></script>
+  <script src="js/core/shaders.js"></script>
+  <script src="js/core/geometry.js"></script>
+  <script src="js/core/obj-loader.js"></script>
+  <script src="js/city.js"></script>
+  <script src="js/renderer.js"></script>
   <script src="js/menu-entry.js"></script>
+  <script src="js/menu-scene.js"></script>
 </body>
 </html>

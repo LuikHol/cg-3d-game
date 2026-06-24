@@ -1,19 +1,11 @@
-/* ================================================================
-   geometry.js – geometria de um cubo unitário centrado na origem.
-
-   Cada face tem 4 vértices próprios (não compartilhados) para que
-   as normais sejam por-face (flat shading correto).
-
-  Retorna: { positions: Float32Array, normals: Float32Array,
-          uvs: Float32Array, indices: Uint16Array }
-   ================================================================ */
+/*
+  geometry.js
+  Gera as geometrias primitivas usadas na cena: cubo, disco e toro.
+  Cada função retorna arrays Float32Array prontos para upload na GPU via gl.bufferData.
+*/
 
 function createBoxGeometry() {
-  /*
-   * 6 faces × 4 vértices = 24 vértices.
-   * Coordenadas vão de -0.5 a +0.5 em cada eixo.
-   * O objeto real é escalado via uModel (mat4.scale) na CPU.
-   */
+  // 6 faces, 4 vértices cada, coordenadas de -0.5 a +0.5
   const positions = new Float32Array([
     /* Front  (+Z) */
     -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5,  0.5,
@@ -29,7 +21,7 @@ function createBoxGeometry() {
     -0.5, -0.5, -0.5,   0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5, -0.5,  0.5,
   ]);
 
-  /* Uma normal por face, repetida nos 4 vértices da face */
+  // normais por face
   const normals = new Float32Array([
     /* Front  */ 0, 0, 1,  0, 0, 1,  0, 0, 1,  0, 0, 1,
     /* Back   */ 0, 0,-1,  0, 0,-1,  0, 0,-1,  0, 0,-1,
@@ -39,7 +31,7 @@ function createBoxGeometry() {
     /* Bottom */ 0,-1, 0,  0,-1, 0,  0,-1, 0,  0,-1, 0,
   ]);
 
-  /* 6 faces × 2 triângulos × 3 índices = 36 índices */
+  // índices (36 no total)
   const indices = new Uint16Array([
      0, 1, 2,   0, 2, 3,   /* front  */
      4, 5, 6,   4, 6, 7,   /* back   */
@@ -49,7 +41,7 @@ function createBoxGeometry() {
     20,21,22,  20,22,23,   /* bottom */
   ]);
 
-  /* UV por face (topo com repeticao maior para nao esticar a grama) */
+  // UVs por face (topo com repetição maior para textura de grama)
   const uvs = new Float32Array([
     /* Front  (+Z) */ 0,0, 1,0, 1,1, 0,1,
     /* Back   (-Z) */ 0,0, 1,0, 1,1, 0,1,
@@ -62,17 +54,14 @@ function createBoxGeometry() {
   return { positions, normals, uvs, indices };
 }
 
-/* ================================================================
-   Disco unitário no plano XZ (normal +Y). Usado para as zonas.
-   Retorna { positions, normals, count } — sem índices, drawArrays.
-   ================================================================ */
+// disco unitário no plano XZ, usado para as zonas de coleta/entrega
 function createDiscGeometry(segs) {
   const pos = new Float32Array(segs * 9);
   const nor = new Float32Array(segs * 9);
   for (let i = 0; i < segs; i++) {
     const a0 = (i       / segs) * Math.PI * 2;
     const a1 = ((i + 1) / segs) * Math.PI * 2;
-    // triângulo: centro → p1 → p0  (CCW visto de +Y = face superior visível)
+    // triângulo em CCW visto de +Y
     pos[i*9+0] = 0;            pos[i*9+1] = 0; pos[i*9+2] = 0;
     pos[i*9+3] = Math.cos(a1); pos[i*9+4] = 0; pos[i*9+5] = Math.sin(a1);
     pos[i*9+6] = Math.cos(a0); pos[i*9+7] = 0; pos[i*9+8] = Math.sin(a0);
@@ -83,13 +72,7 @@ function createDiscGeometry(segs) {
   return { positions: pos, normals: nor, count: segs * 3 };
 }
 
-/* ================================================================
-   Toro paramétrico.
-   O anel fica no plano XY (normal ao longo de +Z).
-   ringRadius = 1 (ajustar via mat4.scale).
-   tubeRatio  = raio do tubo / raio do anel (ex.: 0.08).
-   Retorna { positions, normals, indices }.
-   ================================================================ */
+// toro paramétrico no plano XY, usado para os aros das missões
 function createTorusGeometry(ringSegs, tubeSegs, tubeRatio) {
   const R = 1.0, r = tubeRatio;
   const pos = [], nor = [], idx = [];

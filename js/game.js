@@ -1,21 +1,14 @@
-/* ================================================================
-   game.js – inicialização WebGL, cena e loop principal
-
-   Dependências (carregadas antes no index.html):
-     • glMatrix 2.8   – mat3, mat4, vec3
-     • shaders.js     – VERT_SRC, FRAG_SRC
-     • geometry.js    – createBoxGeometry(), createDiscGeometry(), createTorusGeometry()
-     • obj-loader.js  – loadOBJ(), uploadOBJMesh(), bindOBJMesh(), drawOBJMesh()
-     • input.js       – Input.isDown()
-     • city.js        – City
-     • mission.js     – Mission
-     • renderer.js    – Renderer
-   ================================================================ */
+﻿/*
+  game.js
+  Inicialização WebGL, loop principal do jogo e física do drone.
+  Gerencia câmera, carregamento de modelos OBJ, cena de pausa, tela de resultados e HUD de fim de jogo.
+  Depende: gl-matrix, Renderer, City, Mission, Input, MiniMap.
+*/
 
 (function () {
   'use strict';
 
-  /* ── 1. Canvas & contexto WebGL ──────────────────────────────── */
+  // 1. Canvas & contexto WebGL
 
   const canvas = document.getElementById('canvas');
 
@@ -33,7 +26,7 @@
     return;
   }
 
-  /* ── 2. Compilação e link dos shaders ───────────────────────── */
+  // 2. Compilação e link dos shaders
 
   function compileShader(type, src) {
     const s = gl.createShader(type);
@@ -57,7 +50,7 @@
   const prog = createProgram(VERT_SRC, FRAG_SRC);
   gl.useProgram(prog);
 
-  /* ── 3. Localização de atributos e uniforms ─────────────────── */
+  // 3. Localização de atributos e uniforms
 
   const loc = {
     aPos  : gl.getAttribLocation (prog, 'aPosition'),
@@ -96,7 +89,7 @@
   gl.uniform1f(loc.uFogNear, 55.0);
   gl.uniform1f(loc.uFogFar,  180.0);
 
-  /* ── 4. Buffers de geometria ────────────────────────────────── */
+  // 4. Buffers de geometria
 
   /* Cubo */
   const geo    = createBoxGeometry();
@@ -142,7 +135,7 @@
   loadOBJ('js/objects/arvore.obj')
     .then(parsed => { treeMesh = uploadOBJMesh(gl, parsed); })
     .catch(err   => { console.error('Falha ao carregar árvore OBJ:', err); });
-  
+
   /* Carro OBJ (carregado de forma assíncrona) */
   let carMesh  = null;
   loadOBJ('js/objects/Car.obj')
@@ -238,7 +231,7 @@
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, torIdxBuf);
   }
 
-  /* ── 5. Matrizes e vetores reutilizáveis ────────────────────── */
+  // 5. Matrizes e vetores reutilizáveis
 
   const modelMat = mat4.create();
   const viewMat  = mat4.create();
@@ -248,7 +241,7 @@
   const lightPos = vec3.create();
   const fwdVec   = vec3.create();
 
-  /* ── 6. Pointer Lock ────────────────────────────────────────── */
+  // 6. Pointer Lock
 
   let mouseLocked = false;
   let paused      = false;
@@ -311,7 +304,7 @@
     if (mouseLocked) { mouseDX += e.movementX; mouseDY += e.movementY; }
   });
 
-  /* ── 7. Estado do drone ─────────────────────────────────────── */
+  // 7. Estado do drone
 
   const drone = {
     pos         : vec3.fromValues(0, 3, 0),
@@ -321,10 +314,10 @@
     tiltPitch   : 0,
     tiltRoll    : 0,
     SPEED       : 10,
-    VSPEED      : 12,
+    VSPEED      : 22,
     ACCEL       : 28,
     DRAG        :  2.2,
-    VDRAG       :  3.0,
+    VDRAG       :  1.8,
     boostVel    : [0, 0, 0],
     BOOST_DRAG  :  0.55,
     GRAVITY     :  2.0,
@@ -335,13 +328,13 @@
     camPitchNudge: 0,
   };
 
-  /* ── 8. Inicializa módulos ───────────────────────────────────── */
+  // 8. Inicializa módulos
 
   Mission.init(drone);
   Renderer.init(drone, gl);
   City.buildTrees(Mission.MISSION_DEFS);
 
-  /* ── 9. Ciclo dia/noite e HUD ───────────────────────────────── */
+  // 9. Ciclo dia/noite e HUD
 
   let   timeOfDay = 0.38;       // 0=meia-noite · 0.25=nascer · 0.5=meio-dia
   const DAY_SPEED = 1 / 480;   // ciclo completo em ~8 min reais
@@ -457,7 +450,7 @@
   paused = !_autoStart;
   hudPause.style.display = paused ? 'flex' : 'none';
 
-  /* ── 10. Loop principal ─────────────────────────────────────── */
+  // 10. Loop principal
 
   let lastT     = 0;
   let frameTime = 0;
@@ -489,7 +482,7 @@
 
     if (paused) { mouseDX = 0; requestAnimationFrame(frame); return; }
 
-    /* ── Mouse → yaw + pitch ────────────────────────────────── */
+    // Mouse → yaw + pitch
     if (mouseLocked && !dialogueBlocked) {
       drone.yaw      -= mouseDX * drone.SENSITIVITY;
       drone.camPitch += mouseDY * drone.SENSITIVITY;
@@ -498,7 +491,7 @@
     mouseDX = 0;
     mouseDY = 0;
 
-    /* ── Direções ───────────────────────────────────────────── */
+    // Direções
     fwdVec[0] = -Math.sin(drone.yaw);
     fwdVec[1] =  0;
     fwdVec[2] = -Math.cos(drone.yaw);
@@ -506,7 +499,7 @@
     const rightZ = -Math.sin(drone.yaw);
 
     if (!dialogueBlocked) {
-      /* ── Input ──────────────────────────────────────────────── */
+      // Input
       const movW    = Input.isDown('KeyW');
       const movS    = Input.isDown('KeyS');
       const movA    = Input.isDown('KeyA');
@@ -514,7 +507,7 @@
       const movUp   = Input.isDown('Space');
       const movDown = Input.isDown('ShiftLeft') || Input.isDown('ShiftRight');
 
-      /* ── Física ─────────────────────────────────────────────── */
+      // Física
       let ax = 0, az = 0, ay = 0;
       if (movW) { ax += fwdVec[0] * drone.ACCEL; az += fwdVec[2] * drone.ACCEL; }
       if (movS) { ax -= fwdVec[0] * drone.ACCEL; az -= fwdVec[2] * drone.ACCEL; }
@@ -550,7 +543,7 @@
       if (drone.pos[1] < 0.3) { drone.pos[1] = 0.3; drone.vel[1] = 0; }
       if (drone.pos[1] > 150) { drone.pos[1] = 150; drone.vel[1] = 0; drone.boostVel[1] = 0; }
 
-      /* ── Colisão ────────────────────────────────────────────── */
+      // Colisão
       const PLAYER_HALF_SIZE   = 1.3;
       const PLAYER_HALF_HEIGHT = 1.7;
       const collision = City.resolveCollision(drone.pos, oldDronePos, PLAYER_HALF_SIZE, PLAYER_HALF_HEIGHT);
@@ -572,7 +565,7 @@
       return;
     }
 
-    /* ── Tilt visual ────────────────────────────────────────── */
+    // Tilt visual
     const vFwd    =  drone.vel[0] * fwdVec[0] + drone.vel[2] * fwdVec[2];
     const vRight  =  drone.vel[0] * rightX    + drone.vel[2] * rightZ;
     const tpTarget = (vFwd   / drone.SPEED) *  drone.MAX_TILT;
@@ -580,11 +573,11 @@
     drone.tiltPitch += (tpTarget - drone.tiltPitch) * drone.TILT_SPEED * dt;
     drone.tiltRoll  += (trTarget - drone.tiltRoll)  * drone.TILT_SPEED * dt;
 
-    /* ── Nudge vertical da câmera ───────────────────────────── */
+    // Nudge vertical da câmera
     const nudgeTarget = -(drone.vel[1] / drone.VSPEED) * 0.18;
     drone.camPitchNudge += (nudgeTarget - drone.camPitchNudge) * 6 * dt;
 
-    /* ── Câmera orbital ─────────────────────────────────────── */
+    // Câmera orbital
     const hDist          = Math.cos(drone.camPitch) * drone.CAM_DIST;
     const effectivePitch = drone.camPitch + drone.camPitchNudge;
     camPos[0] = drone.pos[0] + Math.sin(drone.yaw) * hDist;
@@ -593,7 +586,7 @@
     mat4.lookAt(viewMat, camPos, drone.pos, [0, 1, 0]);
     mat4.perspective(projMat, Math.PI / 3, canvas.width / canvas.height, 0.1, 600);
 
-    /* ── Sol, lua e iluminação ──────────────────────────────── */
+    // Sol, lua e iluminação
     const _sunAngle  = (timeOfDay - 0.25) * Math.PI * 2;
     const _sunHeight = Math.sin(_sunAngle);
     const _sunX      = Math.cos(_sunAngle) * Renderer.LIGHT_R;
@@ -615,7 +608,7 @@
     const _fogNear    = 48.0 - _nightBlend * 6.0;
     const _fogFar     = 170.0 - _nightBlend * 12.0;
 
-    /* ── Estado WebGL ───────────────────────────────────────── */
+    // Estado WebGL
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(_sky[0], _sky[1], _sky[2], 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -640,7 +633,7 @@
     gl.uniform1f(loc.uAlpha,    1.0);
     gl.uniform1f(loc.uSpecular, 1.0);
 
-    /* ── Render context (passado a todos os módulos de draw) ── */
+    // Render context (passado a todos os módulos de draw)
     const rc = {
       gl, loc, modelMat, viewMat, normMat3, camPos,
       IDX_COUNT, DISC_COUNT, TOR_IDX_COUNT,
@@ -653,7 +646,7 @@
       get timeOfDay() { return timeOfDay; },  // mutable: Renderer.drawSkyObjects precisa
     };
 
-    /* ── Cena ───────────────────────────────────────────────── */
+    // Cena
     bindMesh();
     Renderer.drawSkyObjects(rc, _sunHeight, _nightBlend, _sunX, _sunY, _sunZ);
     bindMesh(); // restaura após drawSkyObjects

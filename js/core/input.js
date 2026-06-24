@@ -1,13 +1,13 @@
-/* ================================================================
-   input.js – rastreamento do estado do teclado via eventos DOM.
-
-   Uso: Input.isDown('KeyW')  → true enquanto W estiver pressionado
-   ================================================================ */
+/*
+  input.js
+  Rastreia o estado do teclado em tempo real via eventos DOM.
+  Uso: Input.isDown('KeyW') retorna true enquanto a tecla estiver pressionada.
+*/
 
 const Input = (() => {
   const held = {};
 
-  /* Teclas que causam scroll no navegador – prevenimos o padrão */
+  // teclas bloqueadas para evitar scroll da página
   const BLOCK = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 
   window.addEventListener('keydown', e => {
@@ -19,7 +19,7 @@ const Input = (() => {
     held[e.code] = false;
   });
 
-  /* Limpa o estado se a janela perder o foco (evita teclas "presas") */
+  // limpa ao perder foco, evita teclas presas
   window.addEventListener('blur', () => {
     Object.keys(held).forEach(k => { held[k] = false; });
   });

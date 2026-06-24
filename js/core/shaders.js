@@ -1,8 +1,10 @@
-/* ================================================================
-   shaders.js – código-fonte GLSL dos shaders (Vertex + Fragment)
-   ================================================================ */
+/*
+  shaders.js
+  Código-fonte GLSL dos shaders Vertex e Fragment usados em toda a cena.
+  Implementa iluminação Blinn-Phong com suporte a textura, névoa, modo árvore e emissivos.
+*/
 
-/* ── Vertex Shader ─────────────────────────────────────────────── */
+// vertex shader
 const VERT_SRC = /* glsl */`
 attribute vec3 aPosition;
 attribute vec3 aNormal;
@@ -11,7 +13,7 @@ attribute vec2 aUV;
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProj;
-uniform mat3 uNormalMat;   /* transposta da inversa de uModel (3x3) */
+uniform mat3 uNormalMat;
 
 varying vec3 vNormal;
 varying vec3 vFragPos;
@@ -26,26 +28,26 @@ void main() {
 }
 `;
 
-/* ── Fragment Shader (Blinn-Phong) ─────────────────────────────── */
+// fragment shader (Blinn-Phong)
 const FRAG_SRC = /* glsl */`
 precision mediump float;
 
-uniform vec3  uLightPos;    /* posição da fonte de luz (sol) no mundo */
-uniform vec3  uEyePos;      /* posição da câmera no mundo             */
-uniform vec3  uColor;       /* cor RGB do objeto                      */
-uniform float uAlpha;       /* opacidade (1.0 = totalmente opaco)     */
-uniform sampler2D uTex;     /* textura RGBA (opcional)                */
-uniform float uUseTex;      /* 1=usa textura, 0=cor sólida            */
-uniform float uUnlit;       /* 1=sem iluminação (sprites emissivos)   */
-uniform float uAmbient;        /* nível de luz ambiente (varia dia/noite)*/
-uniform float uLightIntensity; /* intensidade da fonte (1=sol, ~0.15=lua) */
-uniform vec3  uEmissive;       /* cor emissiva – ignora iluminação       */
-uniform float uSpecular;       /* escala do especular (0=matte, 1=full)  */
-uniform float uTreeMode;       /* 1=ativa cor tronco/copa para árvores    */
-uniform float uTreeTrunkTop;   /* altura Y do fim do tronco no mundo      */
-uniform vec3  uFogColor;       /* cor da névoa atmosférica                */
-uniform float uFogNear;        /* início da névoa (distância da câmera)   */
-uniform float uFogFar;         /* fim da névoa                             */
+uniform vec3  uLightPos;
+  uniform vec3  uEyePos;
+  uniform vec3  uColor;
+  uniform float uAlpha;
+  uniform sampler2D uTex;
+  uniform float uUseTex;      // 1=textura, 0=cor sólida
+  uniform float uUnlit;       // 1=sem iluminação
+  uniform float uAmbient;
+  uniform float uLightIntensity;
+  uniform vec3  uEmissive;
+  uniform float uSpecular;    // 0=matte, 1=brilhoso
+  uniform float uTreeMode;    // 1=coloração tronco/copa
+  uniform float uTreeTrunkTop;
+  uniform vec3  uFogColor;
+  uniform float uFogNear;
+  uniform float uFogFar;
 
 varying vec3 vNormal;
 varying vec3 vFragPos;
@@ -61,10 +63,10 @@ void main() {
   vec3 lightDir = normalize(uLightPos - vFragPos);
   vec3 viewDir  = normalize(uEyePos   - vFragPos);
 
-  /* Componente difusa (Lambert) */
+  // difusa (Lambert)
   float diff = max(dot(norm, lightDir), 0.0);
 
-  /* Componente especular (Blinn-Phong) */
+  // especular (Blinn-Phong)
   vec3  halfVec = normalize(lightDir + viewDir);
   float spec    = pow(max(dot(norm, halfVec), 0.0), 64.0) * 0.45 * uSpecular;
 
@@ -74,7 +76,7 @@ void main() {
   float alpha    = uAlpha * texel.a;
   if (uTreeMode > 0.5) {
     vec3 trunkColor = vec3(0.28, 0.16, 0.07);
-    // Corte mais alto para evitar vazamento verde em galhos baixos.
+    // separa tronco de copa
     float isLeaf = step(uTreeTrunkTop + 1.20, vFragPos.y);
     baseColor = mix(trunkColor, uColor, isLeaf);
   }

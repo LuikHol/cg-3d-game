@@ -1,13 +1,9 @@
-/* ================================================================
-   obj-loader.js – parser OBJ próprio + upload para a GPU
-
-   API pública (globais):
-     parseOBJ(text)              → { positions, normals, uvs, count }
-     loadOBJ(url)                → Promise<parsed>
-     uploadOBJMesh(gl, parsed)   → mesh { posVBO, normVBO, uvVBO, count }
-     bindOBJMesh(gl, loc, mesh)  → vincula pos+norm ao shader atual
-     drawOBJMesh(gl, mesh)       → gl.drawArrays(TRIANGLES, 0, count)
-   ================================================================ */
+/*
+  obj-loader.js
+  Parser OBJ customizado e upload das geometrias para a GPU.
+  Suporta v/vn/vt, triangulação em leque, normais flat como fallback, e segmentos por material.
+  API: parseOBJ, parseOBJGroups, loadOBJ, uploadOBJMesh, bindOBJMesh, drawOBJMesh.
+*/
 
 'use strict';
 
@@ -74,13 +70,13 @@ function parseOBJ(text) {
       ]);
 
     } else if (tok === 'f') {
-      /* ── Coleta os vértices da face ─────────────────────────── */
+      // vértices da face
       const fverts = [];
       for (let k = 1; k < parts.length; k++) {
         if (!parts[k]) continue;
         const idx = parts[k].split('/');
 
-        /* OBJ usa índices 1-based; negativos = relativo ao fim */
+        // OBJ usa índices 1-based; negativos = relativo ao fim
         function resolve(raw, arr) {
           if (!raw || raw === '') return -1;
           const n = parseInt(raw);
@@ -93,11 +89,11 @@ function parseOBJ(text) {
         fverts.push({ pi, ti, ni });
       }
 
-      /* ── Triangulação em leque: (0,1,2), (0,2,3), … ────────── */
+      // triangulação em leque
       for (let k = 1; k + 1 < fverts.length; k++) {
         const tri = [fverts[0], fverts[k], fverts[k + 1]];
 
-        /* Normal flat como fallback caso o OBJ não tenha vn ────── */
+        // normal flat como fallback caso o OBJ não tenha vn
         let flatNorm = null;
         if (tri[0].ni < 0 || tri[1].ni < 0 || tri[2].ni < 0) {
           const a = vPos[tri[0].pi];
@@ -112,7 +108,7 @@ function parseOBJ(text) {
           flatNorm = [nx/len, ny/len, nz/len];
         }
 
-        /* Emite 3 vértices por triângulo */
+        // emite 3 vértices por triângulo
         for (let v = 0; v < 3; v++) {
           const { pi, ti, ni } = tri[v];
 
@@ -130,7 +126,7 @@ function parseOBJ(text) {
         }
       }
     } else if (tok === 'usemtl') {
-      // Finaliza o segmento atual e inicia um novo para o material informado.
+      // inicia novo segmento de material
       const currCount = outPos.length / 3;
       const segCount = currCount - segStart;
       if (segCount > 0) {
@@ -139,10 +135,10 @@ function parseOBJ(text) {
       segMaterial = parts.slice(1).join(' ') || null;
       segStart = currCount;
     }
-    /* Todos os outros tokens (o, g, s, usemtl, mtllib) são ignorados */
+    /* tokens desconhecidos são ignorados */
   }
 
-  /* Flush segmento final */
+  // flush do segmento final
   const _lastCnt = outPos.length / 3 - segStart;
   if (_lastCnt > 0) rawSegments.push({ material: segMaterial, start: segStart, count: _lastCnt });
 
@@ -155,18 +151,14 @@ function parseOBJ(text) {
   };
 }
 
-/* ── parseOBJGroups ───────────────────────────────────────────────
- * Igual ao parseOBJ mas retorna um mapa { nome: parsedData }
- * para cada objeto nomeado com "o" no arquivo.
- * Objetos sem nome ficam em "_default".
- * ─────────────────────────────────────────────────────────────── */
+// igual ao parseOBJ, mas retorna { nome: parsedData } por objeto "o" no arquivo
 function parseOBJGroups(text) {
-  /* Divide o texto em blocos por "o <nome>" */
+  // divide o texto em blocos por "o <nome>"
   const sections = [];
   let current = { name: '_default', lines: [] };
   const lines = text.split('\n');
 
-  /* Acumula as declarações globais v/vn/vt antes do primeiro "o" */
+  // acumula declarações globais v/vn/vt antes do primeiro "o"
   const globalLines = [];
   let firstO = false;
 
@@ -189,11 +181,11 @@ function parseOBJGroups(text) {
   const result = {};
   for (const sec of sections) {
     if (sec.lines.length === 0) continue;
-    /* Injeta as declarações globais antes das faces de cada seção */
+    // injeta as declarações globais antes das faces de cada seção
     const merged = globalLines.concat(sec.lines).join('\n');
     const parsed = parseOBJ(merged);
     if (parsed.count > 0) {
-      /* Se já existe um grupo com esse nome, mescla */
+      // mescla se já existe um grupo com esse nome
       if (result[sec.name]) {
         const a = result[sec.name];
         result[sec.name] = {
@@ -210,6 +202,7 @@ function parseOBJGroups(text) {
   return result;
 }
 
+// auxiliar: concatena dois Float32Array
 function _concatF32(a, b) {
   const out = new Float32Array(a.length + b.length);
   out.set(a, 0);
@@ -217,9 +210,7 @@ function _concatF32(a, b) {
   return out;
 }
 
-/* ── loadOBJ ──────────────────────────────────────────────────────
- * Faz fetch de um arquivo .obj e retorna a Promise do parseOBJ.
- * ─────────────────────────────────────────────────────────────── */
+// faz fetch de um .obj e retorna Promise<parsed>
 function loadOBJ(url) {
   return fetch(url)
     .then(function (r) {
@@ -231,10 +222,7 @@ function loadOBJ(url) {
     });
 }
 
-/* ── uploadOBJMesh ────────────────────────────────────────────────
- * Envia os arrays parseados para a GPU.
- * Retorna um objeto mesh com { posVBO, normVBO, uvVBO, count }.
- * ─────────────────────────────────────────────────────────────── */
+// envia arrays parseados para a GPU; retorna mesh { posVBO, normVBO, uvVBO, count }
 function uploadOBJMesh(gl, parsed) {
   const posVBO = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, posVBO);
@@ -251,10 +239,7 @@ function uploadOBJMesh(gl, parsed) {
   return { posVBO, normVBO, uvVBO, count: parsed.count, segments: parsed.rawSegments || [] };
 }
 
-/* ── bindOBJMesh ──────────────────────────────────────────────────
- * Vincula pos e norm ao shader. Chame antes de drawOBJMesh().
- * (UV será vinculado quando o suporte a texturas for adicionado.)
- * ─────────────────────────────────────────────────────────────── */
+// vincula pos e norm ao shader; chame antes de drawOBJMesh
 function bindOBJMesh(gl, loc, mesh) {
   gl.bindBuffer(gl.ARRAY_BUFFER, mesh.posVBO);
   gl.enableVertexAttribArray(loc.aPos);
@@ -265,9 +250,7 @@ function bindOBJMesh(gl, loc, mesh) {
   gl.vertexAttribPointer(loc.aNorm, 3, gl.FLOAT, false, 0, 0);
 }
 
-/* ── drawOBJMesh ──────────────────────────────────────────────────
- * Emite o draw call. Chame bindOBJMesh antes.
- * ─────────────────────────────────────────────────────────────── */
+// emite o draw call; chame bindOBJMesh antes
 function drawOBJMesh(gl, mesh) {
   gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
 }

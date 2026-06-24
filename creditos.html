@@ -7,19 +7,37 @@
   <link rel="stylesheet" href="menu.css" />
 </head>
 <body>
-  <div class="city-static" aria-hidden="true">
-    <div class="sun"></div>
-    <div class="haze"></div>
-    <div class="skyline skyline-back"></div>
-    <div class="skyline skyline-mid"></div>
-    <div class="road"></div>
-  </div>
+  <canvas id="menu-canvas" aria-hidden="true"></canvas>
 
   <main class="subpage-shell">
     <section class="subpage-card" aria-label="Creditos do jogo">
-      <h1 class="subpage-title">Creditos</h1>
-      <p class="subpage-text">Delivered by Drones foi desenvolvido como projeto de Computacao Grafica.</p>
-      <p class="subpage-text">Equipe: desenvolvimento de gameplay, cidade, shaders e missões.</p>
+      <h1 class="subpage-title">Créditos</h1>
+      <p class="subpage-text">Delivered by Drones foi desenvolvido como projeto de Computação Gráfica.</p>
+
+      <h2 class="subpage-subtitle">Desenvolvedores</h2>
+      <ul class="subpage-list">
+        <li>Kalil Rodrigues</li>
+        <li>Gabryella Rodrigues</li>
+        <li>Lucas Holanda</li>
+      </ul>
+
+      <h2 class="subpage-subtitle">Modelos autorais</h2>
+      <ul class="subpage-list">
+        <li>Drone — modelado pela equipe</li>
+        <li>Seta de direção — modelada pela equipe</li>
+        <li>Cidade, prédios, ruas, postes e hidrantes — gerados proceduralmente pela equipe</li>
+      </ul>
+
+      <h2 class="subpage-subtitle">Assets de terceiros</h2>
+      <ul class="subpage-list">
+        <li>Modelo de carro — wufudufu</li>
+        <li>Modelo de banco — raccoonice</li>
+        <li>Modelo de lata de lixo — tarcisio1</li>
+        <li>Modelo de presente (Gift Box) — Elias</li>
+        <li>Modelos de árvores — paulsendesign</li>
+        <li>Fotografias dos personagens — imagens de terceiros</li>
+        <li>Texturas do sol e da lua — imagens de terceiros</li>
+      </ul>
 
       <nav class="subpage-actions" aria-label="Navegacao">
         <a class="menu-btn" href="index.html">Voltar ao menu</a>
@@ -27,6 +45,13 @@
       </nav>
     </section>
   </main>
+  <script src="js/lib/gl-matrix-min.js"></script>
+  <script src="js/core/shaders.js"></script>
+  <script src="js/core/geometry.js"></script>
+  <script src="js/core/obj-loader.js"></script>
+  <script src="js/city.js"></script>
+  <script src="js/renderer.js"></script>
   <script src="js/menu-entry.js"></script>
+  <script src="js/menu-scene.js"></script>
 </body>
 </html>

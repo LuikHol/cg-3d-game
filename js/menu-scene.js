@@ -1,6 +1,8 @@
-/* ================================================================
-   menu-scene.js - render da cidade 3D estatica para fundo do menu
-   ================================================================ */
+/*
+  menu-scene.js
+  Renderiza a cidade 3D estática como fundo animado do menu e das subpáginas.
+  Usa o mesmo pipeline WebGL do jogo, mas sem drone ou lógica de gameplay.
+*/
 
 (function () {
   'use strict';
