@@ -112,10 +112,77 @@ const City = (() => {
 
   const BUILDING_SCALE_XZ = 1.18;
   const BUILDING_SCALE_Y  = 1.45;
+
+  function _clamp01(v) {
+    return Math.max(0, Math.min(1, v));
+  }
+
+  // Realca a paleta dos prédios sem perder completamente a identidade original.
+  function _vividColor(r, g, b) {
+    const avg = (r + g + b) / 3;
+    const satBoost = 1.18;
+    const lift = 0.07;
+    const mute = 0.16; // puxa um pouco para tons mais suaves
+    const nr = _clamp01((r - avg) * satBoost + avg + lift);
+    const ng = _clamp01((g - avg) * satBoost + avg + lift);
+    const nb = _clamp01((b - avg) * satBoost + avg + lift);
+    return [
+      _clamp01(nr * (1 - mute) + avg * mute),
+      _clamp01(ng * (1 - mute) + avg * mute),
+      _clamp01(nb * (1 - mute) + avg * mute),
+    ];
+  }
+
+  const RED_ACCENTS = [
+    [0.86, 0.25, 0.22],
+    [0.80, 0.18, 0.24],
+    [0.90, 0.35, 0.28],
+    [0.74, 0.20, 0.18],
+  ];
+
+  const YELLOW_ACCENTS = [
+    [0.86, 0.74, 0.30],
+    [0.80, 0.68, 0.24],
+    [0.90, 0.78, 0.34],
+    [0.76, 0.64, 0.26],
+  ];
+
+  const GREEN_ACCENTS = [
+    [0.32, 0.72, 0.48],
+    [0.26, 0.66, 0.44],
+    [0.40, 0.78, 0.52],
+    [0.30, 0.60, 0.40],
+  ];
+
   for (let i = 0; i < buildings.length; i++) {
     buildings[i][2] *= BUILDING_SCALE_XZ;
     buildings[i][3] *= BUILDING_SCALE_XZ;
     buildings[i][4] *= BUILDING_SCALE_Y;
+    const c = _vividColor(buildings[i][5], buildings[i][6], buildings[i][7]);
+    buildings[i][5] = c[0];
+    buildings[i][6] = c[1];
+    buildings[i][7] = c[2];
+
+    // Espalha prédios vermelhos para ficar perceptível no skyline.
+    if (i % 8 === 0 || i % 13 === 0) {
+      const red = RED_ACCENTS[(i / 3) % RED_ACCENTS.length | 0];
+      const vividRed = _vividColor(red[0], red[1], red[2]);
+      buildings[i][5] = vividRed[0];
+      buildings[i][6] = vividRed[1];
+      buildings[i][7] = vividRed[2];
+    } else if (i % 9 === 0 || i % 14 === 0) {
+      const yellow = YELLOW_ACCENTS[(i / 4) % YELLOW_ACCENTS.length | 0];
+      const vividYellow = _vividColor(yellow[0], yellow[1], yellow[2]);
+      buildings[i][5] = vividYellow[0];
+      buildings[i][6] = vividYellow[1];
+      buildings[i][7] = vividYellow[2];
+    } else if (i % 10 === 0 || i % 15 === 0) {
+      const green = GREEN_ACCENTS[(i / 5) % GREEN_ACCENTS.length | 0];
+      const vividGreen = _vividColor(green[0], green[1], green[2]);
+      buildings[i][5] = vividGreen[0];
+      buildings[i][6] = vividGreen[1];
+      buildings[i][7] = vividGreen[2];
+    }
   }
 
   function addMoreBuildings(count) {
@@ -128,12 +195,25 @@ const City = (() => {
       [0.58, 0.56, 0.54], [0.26, 0.38, 0.55], [0.70, 0.64, 0.50],
       [0.30, 0.36, 0.52], [0.82, 0.80, 0.78], [0.58, 0.40, 0.32],
       [0.28, 0.34, 0.50], [0.62, 0.44, 0.34],
+      // Novos tons mais vivos para variar o skyline
+      [0.84, 0.34, 0.30], [0.24, 0.64, 0.88], [0.28, 0.72, 0.56],
+      [0.90, 0.62, 0.24], [0.70, 0.42, 0.84],
+      // Vermelhos adicionais
+      [0.88, 0.20, 0.18], [0.78, 0.24, 0.20], [0.92, 0.30, 0.26],
+      [0.72, 0.16, 0.18], [0.86, 0.28, 0.36],
+      // Amarelos coloridos, mas mais suaves
+      [0.86, 0.74, 0.30], [0.80, 0.68, 0.24], [0.90, 0.78, 0.34],
+      [0.76, 0.64, 0.26], [0.88, 0.72, 0.40],
+      // Verdes coloridos, mantendo saturacao moderada
+      [0.32, 0.72, 0.48], [0.26, 0.66, 0.44], [0.40, 0.78, 0.52],
+      [0.30, 0.60, 0.40], [0.46, 0.74, 0.56],
     ];
     for (let i = 0; i < count; i++) {
       const w = 3.6 + rand() * 6.6;
       const d = 3.6 + rand() * 6.6;
       const h = 8.0 + rand() * 24.0;
-      const c = palette[(rand() * palette.length) | 0];
+      const base = palette[(rand() * palette.length) | 0];
+      const c = _vividColor(base[0], base[1], base[2]);
       const x = (rand() * 2 - 1) * 118;
       const z = (rand() * 2 - 1) * 118;
       buildings.push([x, z, w, d, h, c[0], c[1], c[2]]);
