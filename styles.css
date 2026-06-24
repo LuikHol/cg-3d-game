@@ -16,6 +16,7 @@ body.dialogue-open {
 #hud {
   position: fixed;
   inset: 0;
+  z-index: 90;
   pointer-events: none;
   color: #fff;
   text-shadow: 1px 1px 3px #000;
@@ -42,6 +43,7 @@ body.dialogue-open {
 #hud-pause {
   position: absolute;
   inset: 0;
+  z-index: 80;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -154,6 +156,8 @@ body.dialogue-open {
   object-fit: contain;
   image-rendering: auto;
   transform: translateX(-8px);
+  opacity: 1;
+  transition: opacity 0.10s linear;
 }
 
 #vn-box {

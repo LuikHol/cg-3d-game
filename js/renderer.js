@@ -393,56 +393,137 @@ const Renderer = (() => {
     const SWM = City.SIDEWALK_W_MAIN;
     const SWS = City.SIDEWALK_W_SEC;
 
-    /* Via principal Leste–Oeste */
+    /* Via principal Leste–Oeste – sem calçadas nos cruzamentos com vias secundárias (x = ±40) */
     mat4.identity(modelMat);
     mat4.translate(modelMat, modelMat, [0, 0.02, 0]);
     mat4.scale(modelMat, modelMat, [300, 0.04, 6]);
     _drawBox(rc, 0.22, 0.22, 0.22);
+    
+    // Calçadas em segmentos, pulando cruzamentos
+    const xGap = 4.5;  // distância para pular nos cruzamentos
     for (const zSide of [RHM + SWM * 0.5, -(RHM + SWM * 0.5)]) {
-      mat4.identity(modelMat);
-      mat4.translate(modelMat, modelMat, [0, 0.028, zSide]);
-      mat4.scale(modelMat, modelMat, [300, 0.05, SWM]);
-      _drawBox(rc, 0.58, 0.58, 0.56);
+      // Segmentos da via principal L-O
+      for (const [xStart, xEnd] of [[-150, -44], [-36, -4], [4, 36], [44, 150]]) {
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [(xStart + xEnd) / 2, 0.028, zSide]);
+        mat4.scale(modelMat, modelMat, [(xEnd - xStart), 0.05, SWM]);
+        _drawBox(rc, 0.58, 0.58, 0.56);
+      }
     }
 
-    /* Via principal Norte–Sul */
+    /* Via principal Norte–Sul – sem calçadas nos cruzamentos com vias secundárias (z = ±40) */
     mat4.identity(modelMat);
     mat4.translate(modelMat, modelMat, [0, 0.02, 0]);
     mat4.scale(modelMat, modelMat, [6, 0.04, 300]);
     _drawBox(rc, 0.22, 0.22, 0.22);
     for (const xSide of [RHM + SWM * 0.5, -(RHM + SWM * 0.5)]) {
-      mat4.identity(modelMat);
-      mat4.translate(modelMat, modelMat, [xSide, 0.028, 0]);
-      mat4.scale(modelMat, modelMat, [SWM, 0.05, 300]);
-      _drawBox(rc, 0.58, 0.58, 0.56);
+      // Segmentos da via principal N-S
+      for (const [zStart, zEnd] of [[-150, -44], [-36, -4], [4, 36], [44, 150]]) {
+        mat4.identity(modelMat);
+        mat4.translate(modelMat, modelMat, [xSide, 0.028, (zStart + zEnd) / 2]);
+        mat4.scale(modelMat, modelMat, [SWM, 0.05, (zEnd - zStart)]);
+        _drawBox(rc, 0.58, 0.58, 0.56);
+      }
     }
 
-    /* Vias secundárias z = ±40 */
+    /* Vias secundárias z = ±40 – sem calçadas nos cruzamentos com outras vias */
     for (const zOff of [-40, 40]) {
       mat4.identity(modelMat);
       mat4.translate(modelMat, modelMat, [0, 0.02, zOff]);
       mat4.scale(modelMat, modelMat, [300, 0.04, 5]);
       _drawBox(rc, 0.22, 0.22, 0.22);
       for (const side of [1, -1]) {
-        mat4.identity(modelMat);
-        mat4.translate(modelMat, modelMat, [0, 0.028, zOff + side * (RHS + SWS * 0.5)]);
-        mat4.scale(modelMat, modelMat, [300, 0.05, SWS]);
-        _drawBox(rc, 0.56, 0.56, 0.54);
+        // Segmentos de calçada, pulando cruzamentos com vias principais (x = 0) e secundárias (x = ±40)
+        for (const [xStart, xEnd] of [[-150, -44], [-36, -4], [4, 36], [44, 150]]) {
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [(xStart + xEnd) / 2, 0.028, zOff + side * (RHS + SWS * 0.5)]);
+          mat4.scale(modelMat, modelMat, [(xEnd - xStart), 0.05, SWS]);
+          _drawBox(rc, 0.56, 0.56, 0.54);
+        }
       }
     }
 
-    /* Vias secundárias x = ±40 */
+    /* Vias secundárias x = ±40 – sem calçadas nos cruzamentos com outras vias */
     for (const xOff of [-40, 40]) {
       mat4.identity(modelMat);
       mat4.translate(modelMat, modelMat, [xOff, 0.02, 0]);
       mat4.scale(modelMat, modelMat, [5, 0.04, 300]);
       _drawBox(rc, 0.22, 0.22, 0.22);
       for (const side of [1, -1]) {
-        mat4.identity(modelMat);
-        mat4.translate(modelMat, modelMat, [xOff + side * (RHS + SWS * 0.5), 0.028, 0]);
-        mat4.scale(modelMat, modelMat, [SWS, 0.05, 300]);
-        _drawBox(rc, 0.56, 0.56, 0.54);
+        // Segmentos de calçada, pulando cruzamentos com vias principais (z = 0) e secundárias (z = ±40)
+        for (const [zStart, zEnd] of [[-150, -44], [-36, -4], [4, 36], [44, 150]]) {
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [xOff + side * (RHS + SWS * 0.5), 0.028, (zStart + zEnd) / 2]);
+          mat4.scale(modelMat, modelMat, [SWS, 0.05, (zEnd - zStart)]);
+          _drawBox(rc, 0.56, 0.56, 0.54);
+        }
       }
+    }
+  }
+
+  function drawCrosswalks(rc, nightBlend) {
+    const { gl, loc, modelMat } = rc;
+    rc.bindMesh();
+
+    const RHS = City.ROAD_HALF_SEC;
+    const SWM = City.SIDEWALK_W_MAIN;
+    const SWS = City.SIDEWALK_W_SEC;
+
+    const Y_OFFSET = 0.05; // um pouco acima da rua
+    const STRIPE_COUNT = 15; // número de stripes por faixa (mais visível)
+
+    // Largura da faixa de pedestre (deixando gap maior das calçadas)
+    const MAIN_CROSSWALK_WIDTH = 2 * RHS - 3.0;  // via principal: 4.0 metros
+    const SEC_CROSSWALK_WIDTH = 2 * RHS - 3.0;   // via secundária: 3.0 metros
+
+    // Cores
+    const WHITE = [1.0, 1.0, 1.0];           // branco das listras
+    const ROAD_COLOR = [0.22, 0.22, 0.22];   // cor normal da pista
+
+    // Comprimentos de faixa (apenas a rua, não as calçadas)
+    const MAIN_LENGTH = 2 * RHS;  // 6.0 metros
+    const SEC_LENGTH = 2 * RHS;   // 5.0 metros
+
+    // Função auxiliar para desenhar faixas
+    function drawStripedCrossing(centerX, centerZ, stripeAxis, totalLength, crosswalkWidth) {
+      for (let i = 0; i < STRIPE_COUNT; i++) {
+        const isWhite = (i % 2 === 0);
+        const [r, g, b] = isWhite ? WHITE : ROAD_COLOR;
+        const stripeLength = totalLength / STRIPE_COUNT;
+        
+        if (stripeAxis === 'z') {
+          // Faixa estende em Z (via corre em X, rua vai em Z)
+          const offset = -totalLength / 2 + i * stripeLength + stripeLength / 2;
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [centerX, Y_OFFSET, centerZ + offset]);
+          mat4.scale(modelMat, modelMat, [crosswalkWidth, 0.04, stripeLength]);
+          _drawBox(rc, r, g, b);
+        } else {
+          // Faixa estende em X (via corre em Z, rua vai em X)
+          const offset = -totalLength / 2 + i * stripeLength + stripeLength / 2;
+          mat4.identity(modelMat);
+          mat4.translate(modelMat, modelMat, [centerX + offset, Y_OFFSET, centerZ]);
+          mat4.scale(modelMat, modelMat, [stripeLength, 0.04, crosswalkWidth]);
+          _drawBox(rc, r, g, b);
+        }
+      }
+    }
+
+    // Faixas deslocadas ANTES dos cruzamentos (3.5 metros antes)
+    const OFFSET = 3.5;
+
+    // Faixas na via principal L-O (corre em X, estende em Z) antes dos cruzamentos
+    drawStripedCrossing( 40 - OFFSET, 0, 'z', MAIN_LENGTH, MAIN_CROSSWALK_WIDTH);  // Antes de (40, 0)
+    drawStripedCrossing(-40 + OFFSET, 0, 'z', MAIN_LENGTH, MAIN_CROSSWALK_WIDTH);  // Antes de (-40, 0)
+
+    // Faixas na via principal N-S (corre em Z, estende em X) antes dos cruzamentos
+    drawStripedCrossing(0,  40 - OFFSET, 'x', MAIN_LENGTH, MAIN_CROSSWALK_WIDTH);  // Antes de (0, 40)
+    drawStripedCrossing(0, -40 + OFFSET, 'x', MAIN_LENGTH, MAIN_CROSSWALK_WIDTH);  // Antes de (0, -40)
+
+    // Faixas nos cruzamentos de via secundária com via secundária
+    for (const [cx, cz] of [[40, 40], [40, -40], [-40, 40], [-40, -40]]) {
+      drawStripedCrossing(cx - OFFSET, cz, 'z', SEC_LENGTH, SEC_CROSSWALK_WIDTH);  // L-O
+      drawStripedCrossing(cx, cz - OFFSET, 'x', SEC_LENGTH, SEC_CROSSWALK_WIDTH);  // N-S
     }
   }
 
@@ -458,6 +539,14 @@ const Renderer = (() => {
   function drawDrone(rc) {
     const { gl, loc, modelMat, normMat3 } = rc;
     _buildDroneBase();
+    const lightBase = mat4.create();
+    mat4.copy(lightBase, droneBase);
+
+    // Blend dia/noite para acender os farois quando escurece.
+    const tod = (typeof rc.timeOfDay === 'number') ? rc.timeOfDay : 0.5;
+    const sunAngle = (tod - 0.25) * Math.PI * 2;
+    const sunHeight = Math.sin(sunAngle);
+    const nightBlend = Math.max(0, Math.min(1, -sunHeight * 3.0 + 0.25));
 
     /* Se drone.obj foi carregado, renderiza o modelo */
     if (window._droneMesh) {
@@ -491,6 +580,7 @@ const Renderer = (() => {
       mat4.copy(bodyMat, droneBase);
       mat4.scale(bodyMat, bodyMat, [2.6, 2.6, 2.6]);
       _renderDronePart(window._droneMesh, bodyMat, [1.0, 1.0, 1.0], true, 0.9);
+      mat4.copy(lightBase, bodyMat);
 
       /* Hélices animadas (se existirem no OBJ) */
       if (window._droneHelices) {
@@ -547,6 +637,57 @@ const Renderer = (() => {
         mat4.scale(modelMat, modelMat, [0.38, 0.10, 0.38]);
         _drawBox(rc, 0.90, 0.15, 0.15);
       }
+    }
+
+    /* Farois do drone: emissivos com feixe suave noturno */
+    const headlightStrength = 0.18 + nightBlend * 1.20;
+    if (headlightStrength > 0.05) {
+      rc.bindMesh();
+      gl.uniform1f(loc.uUseTex, 0.0);
+      gl.uniform1f(loc.uSpecular, 0.30);
+      if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.95 * headlightStrength, 0.88 * headlightStrength, 0.60 * headlightStrength);
+
+      for (const side of [-1, 1]) {
+        // LED frontal
+        mat4.copy(modelMat, lightBase);
+        mat4.translate(modelMat, modelMat, [side * 0.07, 0.06, -0.18]);
+        mat4.scale(modelMat, modelMat, [0.04, 0.02, 0.02]);
+        _drawBox(rc, 1.0, 0.95, 0.80);
+      }
+
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(false);
+      if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+
+      const beamSegments = [
+        { alpha: 0.28, x: 0.075, z: -0.16, yaw: 0.05, sx: 0.075, sy: 0.060, sz: 0.22, color: [1.0, 0.86, 0.66] },
+        { alpha: 0.24, x: 0.080, z: -0.24, yaw: 0.07, sx: 0.080, sy: 0.060, sz: 0.24, color: [1.0, 0.88, 0.69] },
+        { alpha: 0.21, x: 0.086, z: -0.32, yaw: 0.09, sx: 0.085, sy: 0.058, sz: 0.26, color: [1.0, 0.90, 0.73] },
+        { alpha: 0.18, x: 0.093, z: -0.40, yaw: 0.11, sx: 0.090, sy: 0.057, sz: 0.28, color: [1.0, 0.92, 0.77] },
+        { alpha: 0.15, x: 0.101, z: -0.49, yaw: 0.13, sx: 0.095, sy: 0.055, sz: 0.30, color: [1.0, 0.94, 0.81] },
+        { alpha: 0.12, x: 0.110, z: -0.58, yaw: 0.15, sx: 0.102, sy: 0.053, sz: 0.32, color: [1.0, 0.96, 0.85] },
+        { alpha: 0.10, x: 0.120, z: -0.68, yaw: 0.17, sx: 0.108, sy: 0.052, sz: 0.34, color: [1.0, 0.97, 0.88] },
+        { alpha: 0.08, x: 0.131, z: -0.79, yaw: 0.19, sx: 0.115, sy: 0.050, sz: 0.36, color: [1.0, 0.98, 0.91] },
+      ];
+
+      for (const side of [-1, 1]) {
+        // Segmentos progressivos: forte na saida e mais claro no final
+        for (const seg of beamSegments) {
+          gl.uniform1f(loc.uAlpha, seg.alpha * headlightStrength);
+          mat4.copy(modelMat, lightBase);
+          mat4.translate(modelMat, modelMat, [side * seg.x, 0.06, seg.z]);
+          mat4.rotateY(modelMat, modelMat, -side * seg.yaw);
+          mat4.scale(modelMat, modelMat, [seg.sx, seg.sy, seg.sz]);
+          _drawBox(rc, seg.color[0], seg.color[1], seg.color[2]);
+        }
+      }
+
+      gl.uniform1f(loc.uAlpha, 1.0);
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
+      if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
+      gl.uniform1f(loc.uSpecular, 1.0);
     }
 
     /* Caixa de entrega: aparece quando o drone está transportando */
@@ -631,6 +772,10 @@ const Renderer = (() => {
     /** Desenha chão (grama) e todas as faixas de rua.
      *  rc deve conter: gl, loc, modelMat, normMat3, IDX_COUNT, bindMesh */
     drawGroundAndRoads,
+
+    /** Desenha faixas de pedestre (zebra crossings) nos cruzamentos.
+     *  rc deve conter: gl, loc, modelMat, bindMesh */
+    drawCrosswalks,
 
     /** Desenha o drone (corpo + cúpula + nariz + guardas).
      *  rc deve conter: gl, loc, modelMat, normMat3, IDX_COUNT, bindMesh */

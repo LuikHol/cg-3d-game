@@ -13,8 +13,8 @@ const Mission = (() => {
     {
       decay   : 40,
       hitPad  : 0.80,
-      pickup  : { x: -58, z: -58, r: 6 },
-      delivery: { x:  58, z:  58, r: 6 },
+      pickup  : { x: -72, z: -69, r: 6 },
+      delivery: { x:  70, z:  71, r: 6 },
       hoops: [
         { pos: [-40, 24, -40], radius: 7,   angle:  45, tilt:  0 },
         { pos: [  0, 82,   0], radius: 7,   angle:  45, tilt:  0 },
@@ -38,8 +38,8 @@ const Mission = (() => {
     {
       decay   : 85,
       hitPad  : 0.35,
-      pickup  : { x: -62, z: -50, r: 5 },
-      delivery: { x:  62, z:  50, r: 5 },
+      pickup  : { x: -67, z: -44, r: 5 },
+      delivery: { x:  75, z:  43, r: 5 },
       hoops: [
         { pos: [-40, 22, -40], radius: 6,   angle:  45, tilt:   0 },
         { pos: [-20, 40, -20], radius: 6,   angle:  45, tilt:  20 },
@@ -53,7 +53,7 @@ const Mission = (() => {
       decay   : 115,
       hitPad  : 0.20,
       pickup  : { x:  55, z: -62, r: 5 },
-      delivery: { x: -55, z:  62, r: 5 },
+      delivery: { x: -50, z:  62, r: 5 },
       hoops: [
         { pos: [ 40, 24, -40], radius: 5.5, angle: 135, tilt:   0 },
         { pos: [ 40, 44, -12], radius: 5.5, angle:  90, tilt:  35 },
@@ -95,22 +95,30 @@ const Mission = (() => {
 
   /* ── Diálogo estilo visual novel (aceite da missão) ──────────── */
   const PICKUP_DIALOGUES = [
-    { name: 'Maka',  title: 'Moradora', line: 'Oi piloto! Quero que entregue essa minha encomenda com cuidado, por favor.' },
-    { name: 'Diego', title: 'Cliente',  line: 'Valeu por aceitar! Essa entrega é urgente, preciso dela ainda hoje.' },
-    { name: 'Lia',   title: 'Cliente',  line: 'Confio em você. Leve essa caixa direitinho e me avise quando chegar.' },
-    { name: 'Ravi',  title: 'Comerciante', line: 'Essa encomenda não pode atrasar. Conta contigo para uma entrega perfeita.' },
-    { name: 'Nina',  title: 'Cliente VIP', line: 'Perfeito, piloto! Quero essa encomenda entregue sem nenhum arranhão.' },
+    { name: 'Maka',          title: 'Moradora',      portrait: 'js/textures/maka.png',         line: 'Oi piloto! Quero que entregue essa minha encomenda com cuidado, por favor.' },
+    { name: 'Soul',          title: 'Cliente',       portrait: 'js/textures/soul.png',         line: 'Valeu por aceitar! Essa entrega é urgente, preciso dela ainda hoje.' },
+    { name: 'Tsubaki',       title: 'Cliente',       portrait: 'js/textures/tsubaki.png',      line: 'Confio em você. Leve essa caixa direitinho e me avise quando chegar.' },
+    { name: 'Black Star',    title: 'Comerciante',   portrait: 'js/textures/blackstar.png',    line: 'Essa encomenda não pode atrasar. Conta contigo para uma entrega perfeita.' },
+    { name: 'Death the Kid', title: 'Cliente VIP',   portrait: 'js/textures/deaththekid.png',  line: 'Perfeito, piloto! Quero essa encomenda entregue sem nenhum arranhão.' },
   ];
+  const VN_EMPTY_PORTRAIT = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
   let _vn = null;
   function _ensureVN() {
     if (_vn) return _vn;
 
+    // Pre-carrega os retratos para evitar troca visivel no primeiro frame do dialogo.
+    for (const dlg of PICKUP_DIALOGUES) {
+      if (!dlg.portrait) continue;
+      const img = new Image();
+      img.src = dlg.portrait;
+    }
+
     const layer = document.createElement('div');
     layer.id = 'vn-layer';
     layer.innerHTML = `
       <div id="vn-character">
-        <img id="vn-portrait" src="js/textures/maka.png" alt="Personagem da missão">
+        <img id="vn-portrait" src="${VN_EMPTY_PORTRAIT}" alt="Personagem da missão">
       </div>
       <div id="vn-box">
         <div id="vn-name"></div>
@@ -123,6 +131,7 @@ const Mission = (() => {
     _vn = {
       layer,
       nameEl: layer.querySelector('#vn-name'),
+      portraitEl: layer.querySelector('#vn-portrait'),
       textEl: layer.querySelector('#vn-text'),
       continueBtn: layer.querySelector('#vn-next'),
       text: '',
@@ -159,9 +168,43 @@ const Mission = (() => {
     return _vn;
   }
 
+  function _swapPortrait(vn, src, alt) {
+    if (!vn || !vn.portraitEl) return;
+    const portrait = vn.portraitEl;
+    const targetSrc = src || VN_EMPTY_PORTRAIT;
+
+    portrait.alt = alt || 'Personagem da missao';
+    if (portrait.dataset.currentSrc === targetSrc) {
+      portrait.style.opacity = '1';
+      return;
+    }
+
+    portrait.dataset.currentSrc = targetSrc;
+    portrait.style.opacity = '0';
+    portrait.src = VN_EMPTY_PORTRAIT;
+
+    const revealIfCurrent = () => {
+      if (portrait.dataset.currentSrc !== targetSrc) return;
+      portrait.style.opacity = '1';
+    };
+
+    requestAnimationFrame(() => {
+      if (portrait.dataset.currentSrc !== targetSrc) return;
+      portrait.src = targetSrc;
+
+      if (typeof portrait.decode === 'function') {
+        portrait.decode().then(revealIfCurrent).catch(revealIfCurrent);
+      } else {
+        portrait.onload = revealIfCurrent;
+        portrait.onerror = revealIfCurrent;
+      }
+    });
+  }
+
   function _showPickupDialogue(missionIdx, onContinue) {
     const vn = _ensureVN();
     const data = PICKUP_DIALOGUES[missionIdx % PICKUP_DIALOGUES.length];
+    _swapPortrait(vn, data.portrait, data.name);
     vn.text = data.line;
     vn.visibleChars = 0;
     vn.active = true;
@@ -448,6 +491,19 @@ const Mission = (() => {
 
   /* ── Renderização ─────────────────────────────────────────────── */
 
+  function _nightBlendFromTimeOfDay(timeOfDay) {
+    const tod = (typeof timeOfDay === 'number') ? timeOfDay : 0.5;
+    const sunAngle = (tod - 0.25) * Math.PI * 2;
+    const sunHeight = Math.sin(sunAngle);
+    return Math.max(0, Math.min(1, -sunHeight * 3.0 + 0.25));
+  }
+
+  function _setEmissive(rc, r, g, b, strength) {
+    const { gl, loc } = rc;
+    if (!loc.uEmissive) return;
+    gl.uniform3f(loc.uEmissive, r * strength, g * strength, b * strength);
+  }
+
   function _drawZone(rc, zone, r, g, b, fillRatio) {
     const { modelMat } = rc;
     const pulse = 1 + Math.sin(rc.frameTime * 2.2) * 0.055;
@@ -489,6 +545,8 @@ const Mission = (() => {
 
   function _drawRing(rc, hoop, r, g, b) {
     const { modelMat } = rc;
+
+    // Núcleo do aro
     mat4.identity(modelMat);
     mat4.translate(modelMat, modelMat, hoop.pos);
     const yaw   = (hoop.angle || 0) * Math.PI / 180;
@@ -502,6 +560,7 @@ const Mission = (() => {
   function _drawWaypointArrow(rc) {
     if (_mission.phase === 'done') return;
     const { gl, loc, modelMat, normMat3 } = rc;
+    const nightBlend = _nightBlendFromTimeOfDay(rc.timeOfDay);
     const def = _mission.def;
     let tx, tz, ty;
     if (_mission.phase === 'pickup') {
@@ -527,10 +586,14 @@ const Mission = (() => {
     else if (_mission.phase === 'flying') { ar = 1.0; ag = 0.9; ab = 0.0; }
     else                                  { ar = 1.0; ag = 0.4; ab = 0.0; }
 
+    const arrowAlpha = 0.80 + nightBlend * 0.10;
+    const arrowEmissive = (0.03 + nightBlend * 0.34) * (0.94 + 0.06 * Math.sin(rc.frameTime * 6.0));
+
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
-    gl.uniform1f(loc.uAlpha, 0.85);
+    gl.uniform1f(loc.uAlpha, arrowAlpha);
+    _setEmissive(rc, ar, ag, ab, arrowEmissive);
 
     /* Se Arrow.obj foi carregado, renderiza o modelo */
     if (window._arrowMesh) {
@@ -571,39 +634,58 @@ const Mission = (() => {
     gl.depthMask(true);
     gl.disable(gl.BLEND);
     gl.uniform1f(loc.uAlpha, 1.0);
+    if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
   }
 
   function draw(rc) {
+    const { gl, loc } = rc;
     const ph  = _mission.phase;
     const def = _mission.def;
+    const nightBlend = _nightBlendFromTimeOfDay(rc.timeOfDay);
+    const neonPulse = 0.92 + 0.16 * (0.5 + 0.5 * Math.sin(rc.frameTime * 5.4));
 
     /* ── Zonas no chão ────────────────────────────────────────── */
     rc.bindDisc();
     if (ph === 'pickup') {
-      _drawZone(rc, def.pickup, 0.15, 0.80, 0.25, _mission.pickupTimer / FILL_TIME);
+      _setEmissive(rc, 0.10, 1.00, 0.30, (0.14 + nightBlend * 0.52) * neonPulse);
+      _drawZone(rc, def.pickup, 0.10, 1.00, 0.30, _mission.pickupTimer / FILL_TIME);
     } else {
-      _drawZone(rc, def.pickup, 0.07, 0.18, 0.07, 0);
+      _setEmissive(rc, 0.08, 0.30, 0.12, (0.05 + nightBlend * 0.24) * neonPulse);
+      _drawZone(rc, def.pickup, 0.08, 0.30, 0.12, 0);
     }
     if (ph === 'flying' || ph === 'delivery' || ph === 'done') {
       const fill = ph === 'delivery' ? _mission.deliveryTimer / FILL_TIME : 0;
+      const dr = ph === 'delivery' ? 1.00 : 0.28;
+      const dg = ph === 'delivery' ? 0.42 : 0.32;
+      const db = ph === 'delivery' ? 0.06 : 1.00;
+      _setEmissive(rc, dr, dg, db, (0.12 + nightBlend * 0.48) * neonPulse);
       _drawZone(rc, def.delivery,
-        ph === 'delivery' ? 0.90 : 0.18,
-        ph === 'delivery' ? 0.45 : 0.22,
-        ph === 'delivery' ? 0.05 : 0.80,
+        dr,
+        dg,
+        db,
         fill
       );
     }
 
     /* ── Auras transparentes ──────────────────────────────────── */
     rc.bindDisc();
-    if (ph === 'pickup')
-      _drawAura(rc, def.pickup, 0.20, 1.00, 0.35);
-    if (ph === 'flying' || ph === 'delivery' || ph === 'done')
+    if (ph === 'pickup') {
+      _setEmissive(rc, 0.12, 1.00, 0.36, (0.18 + nightBlend * 0.56) * neonPulse);
+      _drawAura(rc, def.pickup, 0.12, 1.00, 0.36);
+    }
+    if (ph === 'flying' || ph === 'delivery' || ph === 'done') {
+      const ar = ph === 'delivery' ? 1.00 : 0.30;
+      const ag = ph === 'delivery' ? 0.52 : 0.34;
+      const ab = ph === 'delivery' ? 0.10 : 1.00;
+      _setEmissive(rc, ar, ag, ab, (0.18 + nightBlend * 0.56) * neonPulse);
       _drawAura(rc, def.delivery,
-        ph === 'delivery' ? 1.00 : 0.25,
-        ph === 'delivery' ? 0.55 : 0.30,
-        ph === 'delivery' ? 0.10 : 1.00
+        ar,
+        ag,
+        ab
       );
+    }
+
+    if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
 
     /* ── Aros (toro) ──────────────────────────────────────────── */
     if (ph === 'flying') {
@@ -611,13 +693,15 @@ const Mission = (() => {
       for (let i = 0; i < def.hoops.length; i++) {
         if (i < _mission.currentHoop) continue;
         const isNext = i === _mission.currentHoop;
-        _drawRing(rc, def.hoops[i],
-          isNext ? 1.00 : 0.40,
-          isNext ? 0.85 : 0.40,
-          isNext ? 0.00 : 0.60
-        );
+        const rr = isNext ? 1.00 : 0.45;
+        const rg = isNext ? 0.92 : 0.40;
+        const rb = isNext ? 0.08 : 0.90;
+        _setEmissive(rc, rr, rg, rb, (0.15 + nightBlend * 0.58) * neonPulse * (isNext ? 1.08 : 0.72));
+        _drawRing(rc, def.hoops[i], rr, rg, rb);
       }
     }
+
+    if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
 
     /* ── Seta de waypoint ─────────────────────────────────────── */
     _drawWaypointArrow(rc);

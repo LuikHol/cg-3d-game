@@ -306,6 +306,19 @@
 
   const sensSlider = document.getElementById('sens-slider');
   const sensValue  = document.getElementById('sens-value');
+  const droneCoords = document.getElementById('drone-coords');
+
+  function keepPauseOpenOnInteract(el) {
+    if (!el) return;
+    const stop = (e) => e.stopPropagation();
+    el.addEventListener('pointerdown', stop);
+    el.addEventListener('mousedown', stop);
+    el.addEventListener('touchstart', stop, { passive: true });
+    el.addEventListener('click', stop);
+  }
+
+  keepPauseOpenOnInteract(sensSlider);
+  keepPauseOpenOnInteract(sensValue);
   sensSlider.addEventListener('input', () => {
     const v = Number(sensSlider.value);
     sensValue.textContent = v;
@@ -314,9 +327,14 @@
 
   const timeSlider = document.getElementById('time-slider');
   const timeValue  = document.getElementById('time-value');
+  keepPauseOpenOnInteract(timeSlider);
+  keepPauseOpenOnInteract(timeValue);
   timeSlider.addEventListener('input', () => {
     timeOfDay = Number(timeSlider.value) / 1000;
   });
+
+  const pauseRows = document.querySelectorAll('#hud-pause .sensitivity-row');
+  pauseRows.forEach(keepPauseOpenOnInteract);
 
   if (pauseControlsBtn && controlsPanel) {
     pauseControlsBtn.addEventListener('click', e => {
@@ -329,7 +347,7 @@
   }
 
   hudPause.addEventListener('click', e => {
-    const interactive = e.target.closest('input, button, label, #controls-panel');
+    const interactive = e.target.closest('input, button, label, #controls-panel, .sensitivity-row, #sens-value, #time-value');
     if (!interactive) setPaused(false);
   });
 
@@ -362,6 +380,12 @@
     const _th = Math.floor(timeOfDay * 24);
     const _tm = Math.floor((timeOfDay * 24 * 60) % 60);
     timeValue.textContent = String(_th).padStart(2, '0') + ':' + String(_tm).padStart(2, '0');
+    if (droneCoords) {
+      droneCoords.textContent =
+        'Drone: x ' + drone.pos[0].toFixed(1) +
+        ' | y ' + drone.pos[1].toFixed(1) +
+        ' | z ' + drone.pos[2].toFixed(1);
+    }
 
     if (paused) { mouseDX = 0; requestAnimationFrame(frame); return; }
 
@@ -526,6 +550,7 @@
     bindMesh(); // restaura após drawSkyObjects
 
     Renderer.drawGroundAndRoads(rc, _nightBlend);
+    Renderer.drawCrosswalks(rc, _nightBlend);
     City.drawPark(rc, frameTime, _nightBlend);
     City.drawCityProps(rc, _nightBlend);
     City.drawCars(rc);
