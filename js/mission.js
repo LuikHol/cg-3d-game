@@ -92,6 +92,11 @@ const Mission = (() => {
   let _drone      = null;   // referência ao objeto drone de game.js
   let _missionIdx = 0;
   let _mission    = null;
+  let _giftMtlColors = null;
+  let _giftMtlTried = false;
+  let _heartMtlColors = null;
+  let _heartMtlTried = false;
+  let _nextMissionTimerId = null;
 
   /* ── Diálogo estilo visual novel (aceite da missão) ──────────── */
   const PICKUP_DIALOGUES = [
@@ -439,9 +444,9 @@ const Mission = (() => {
           hud.barWrap.style.display  = 'none';
           if (!_mission._nextPending) {
             _mission._nextPending = true;
-            setTimeout(() => {
-              _missionIdx++;
-              _mission = buildMissionState(_missionIdx);
+            _nextMissionTimerId = setTimeout(() => {
+              _nextMissionTimerId = null;
+              _setMissionByIndex(_missionIdx + 1);
             }, 2000);
           }
         } else {
@@ -637,6 +642,220 @@ const Mission = (() => {
     if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
   }
 
+  function _drawMissionOneFloatingGift(rc) {
+    if (_mission.phase !== 'pickup') return;
+    const { gl, loc, modelMat, normMat3 } = rc;
+    const def = _mission.def;
+
+    const missionBoxColors = [
+      [0.98, 0.40, 0.62], // Missao 1
+      [0.95, 0.20, 0.38], // Missao 2
+      [0.20, 0.78, 0.52], // Missao 3
+      [0.26, 0.58, 0.96], // Missao 4
+      [0.66, 0.44, 0.92], // Missao 5
+    ];
+    const missionRibbonColors = [
+      [1.0, 0.84, 0.18],
+      [1.0, 0.92, 0.28],
+      [1.0, 0.95, 0.70],
+      [0.98, 0.92, 0.35],
+      [0.96, 0.88, 0.24],
+    ];
+    const boxColor = missionBoxColors[_missionIdx % missionBoxColors.length];
+    const ribbonColor = missionRibbonColors[_missionIdx % missionRibbonColors.length];
+
+    const bob = Math.sin(rc.frameTime * 2.6) * 0.20;
+    const spin = rc.frameTime * 0.9;
+    const x = def.pickup.x;
+    const y = 1.5 + bob;
+    const z = def.pickup.z;
+
+    if (window._giftBoxMesh) {
+      _ensureGiftMtlColors();
+      const mesh = window._giftBoxMesh;
+      bindOBJMesh(gl, loc, mesh);
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [x, y, z]);
+      mat4.rotateY(modelMat, modelMat, spin);
+      mat4.scale(modelMat, modelMat, [0.46, 0.46, 0.46]);
+      gl.uniformMatrix4fv(loc.uModel, false, modelMat);
+      mat3.normalFromMat4(normMat3, modelMat);
+      gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+
+      // Pinta caixa e laco por segmento de material do OBJ.
+      if (mesh.segments && mesh.segments.length > 0) {
+        for (const seg of mesh.segments) {
+          const color = _giftColorForMaterial(seg.material, boxColor, ribbonColor);
+          gl.uniform3f(loc.uColor, color[0], color[1], color[2]);
+          gl.drawArrays(gl.TRIANGLES, seg.start, seg.count);
+        }
+      } else {
+        gl.uniform3f(loc.uColor, boxColor[0], boxColor[1], boxColor[2]);
+        drawOBJMesh(gl, mesh);
+      }
+      return;
+    }
+
+    // Fallback temporario enquanto o OBJ nao termina de carregar.
+    rc.bindMesh();
+    mat4.identity(modelMat);
+    mat4.translate(modelMat, modelMat, [x, y, z]);
+    mat4.rotateY(modelMat, modelMat, spin);
+    mat4.scale(modelMat, modelMat, [0.56, 0.56, 0.56]);
+    _drawBox(rc, boxColor[0], boxColor[1], boxColor[2]);
+  }
+
+  function _drawMissionTwoFloatingHeart(rc) {
+    if (_missionIdx !== 1 || _mission.phase !== 'pickup') return;
+    const { gl, loc, modelMat, normMat3 } = rc;
+    const def = _mission.def;
+
+    const bob = Math.sin(rc.frameTime * 2.8) * 0.18;
+    const spin = rc.frameTime * 1.1;
+    const x = def.pickup.x;
+    const y = 1.8 + bob;
+    const z = def.pickup.z;
+
+    if (window._heartMesh) {
+      _ensureHeartMtlColors();
+      const mesh = window._heartMesh;
+      bindOBJMesh(gl, loc, mesh);
+      mat4.identity(modelMat);
+      mat4.translate(modelMat, modelMat, [x, y, z]);
+      mat4.rotateY(modelMat, modelMat, spin);
+      mat4.rotateX(modelMat, modelMat, 0.20);
+      mat4.scale(modelMat, modelMat, [0.36, 0.36, 0.36]);
+      gl.uniformMatrix4fv(loc.uModel, false, modelMat);
+      mat3.normalFromMat4(normMat3, modelMat);
+      gl.uniformMatrix3fv(loc.uNormalMat, false, normMat3);
+
+      if (mesh.segments && mesh.segments.length > 0) {
+        for (const seg of mesh.segments) {
+          const color = _heartColorForMaterial(seg.material);
+          gl.uniform3f(loc.uColor, color[0], color[1], color[2]);
+          gl.drawArrays(gl.TRIANGLES, seg.start, seg.count);
+        }
+      } else {
+        gl.uniform3f(loc.uColor, 0.95, 0.20, 0.38);
+        drawOBJMesh(gl, mesh);
+      }
+      return;
+    }
+
+    // Fallback temporario enquanto o OBJ nao termina de carregar.
+    rc.bindMesh();
+    mat4.identity(modelMat);
+    mat4.translate(modelMat, modelMat, [x, y, z]);
+    mat4.rotateY(modelMat, modelMat, spin);
+    mat4.scale(modelMat, modelMat, [0.48, 0.48, 0.48]);
+    _drawBox(rc, 0.94, 0.22, 0.40);
+  }
+
+  function _parseMTLColors(text) {
+    const colors = Object.create(null);
+    const lines = String(text || '').split('\n');
+    let current = null;
+
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line || line[0] === '#') continue;
+      const p = line.split(/\s+/);
+      const tok = p[0].toLowerCase();
+
+      if (tok === 'newmtl') {
+        current = p.slice(1).join(' ').toLowerCase();
+      } else if (tok === 'kd' && current) {
+        const r = Math.max(0, Math.min(1, parseFloat(p[1] || '0')));
+        const g = Math.max(0, Math.min(1, parseFloat(p[2] || '0')));
+        const b = Math.max(0, Math.min(1, parseFloat(p[3] || '0')));
+        colors[current] = [r, g, b];
+      }
+    }
+    return colors;
+  }
+
+  function _ensureGiftMtlColors() {
+    if (_giftMtlTried) return;
+    _giftMtlTried = true;
+
+    fetch('js/objects/GiftBox_blend.mtl')
+      .then(r => {
+        if (!r.ok) throw new Error('MTL not found');
+        return r.text();
+      })
+      .then(text => {
+        _giftMtlColors = _parseMTLColors(text);
+      })
+      .catch(() => {
+        _giftMtlColors = null;
+      });
+  }
+
+  function _giftColorForMaterial(materialName, boxColor, ribbonColor) {
+    const m = String(materialName || '').toLowerCase();
+
+    if (_giftMtlColors && _giftMtlColors[m]) {
+      return _giftMtlColors[m];
+    }
+
+    // Fallback enquanto MTL nao existe/nao carregou.
+    if (m.includes('yellow')) return ribbonColor || [1.0, 0.84, 0.18];
+    return boxColor || [0.98, 0.40, 0.62];
+  }
+
+  function _ensureHeartMtlColors() {
+    if (_heartMtlTried) return;
+    _heartMtlTried = true;
+
+    fetch('js/objects/HeartExportFriendly.mtl')
+      .then(r => {
+        if (!r.ok) throw new Error('MTL not found');
+        return r.text();
+      })
+      .then(text => {
+        _heartMtlColors = _parseMTLColors(text);
+      })
+      .catch(() => {
+        _heartMtlColors = null;
+      });
+  }
+
+  function _heartColorForMaterial(materialName) {
+    const m = String(materialName || '').toLowerCase();
+
+    if (_heartMtlColors && _heartMtlColors[m]) {
+      return _heartMtlColors[m];
+    }
+
+    // Fallback por nome de material enquanto o MTL nao define Kd.
+    if (m.includes('atrium')) return [0.68, 0.10, 0.22];
+    if (m.includes('material.001')) return [0.95, 0.20, 0.38];
+    return [0.90, 0.18, 0.34];
+  }
+
+  function _setMissionByIndex(idx) {
+    const clamped = Math.max(0, Math.min(MISSION_DEFS.length - 1, idx | 0));
+    if (_nextMissionTimerId) {
+      clearTimeout(_nextMissionTimerId);
+      _nextMissionTimerId = null;
+    }
+
+    _missionIdx = clamped;
+    _mission = buildMissionState(_missionIdx);
+
+    if (_vn && _vn.layer) {
+      _vn.active = false;
+      _vn.onContinue = null;
+      _vn.layer.classList.remove('vn-show');
+      _vn.continueBtn.style.display = 'none';
+      document.body.classList.remove('dialogue-open');
+    }
+  }
+
+  function debugJump(delta) {
+    _setMissionByIndex(_missionIdx + (delta | 0));
+  }
+
   function draw(rc) {
     const { gl, loc } = rc;
     const ph  = _mission.phase;
@@ -703,6 +922,12 @@ const Mission = (() => {
 
     if (loc.uEmissive) gl.uniform3f(loc.uEmissive, 0.0, 0.0, 0.0);
 
+    /* ── Item flutuante da missão 1 ───────────────────────────── */
+    _drawMissionOneFloatingGift(rc);
+
+    /* ── Item flutuante da missão 2 ───────────────────────────── */
+    // _drawMissionTwoFloatingHeart(rc);
+
     /* ── Seta de waypoint ─────────────────────────────────────── */
     _drawWaypointArrow(rc);
   }
@@ -723,10 +948,16 @@ const Mission = (() => {
       _drone      = droneRef;
       _missionIdx = 0;
       _mission    = buildMissionState(0);
+      if (_nextMissionTimerId) {
+        clearTimeout(_nextMissionTimerId);
+        _nextMissionTimerId = null;
+      }
     },
 
     /** Atualiza lógica de missão. Chame a cada frame com dt em segundos. */
     update,
+
+    debugJump,
 
     isDialogueBlocking,
 

@@ -167,6 +167,18 @@
     .then(parsed => { window._arrowMesh = uploadOBJMesh(gl, parsed); })
     .catch(err   => { console.error('Falha ao carregar seta OBJ:', err); });
 
+  /* Gift box OBJ (carregado de forma assíncrona) */
+  window._giftBoxMesh = null;
+  loadOBJ('js/objects/GiftBox_blend.obj')
+    .then(parsed => { window._giftBoxMesh = uploadOBJMesh(gl, parsed); })
+    .catch(err   => { console.error('Falha ao carregar gift box OBJ:', err); });
+
+  /* Heart OBJ (carregado de forma assíncrona) */
+  window._heartMesh = null;
+  loadOBJ('js/objects/HeartExportFriendly.obj')
+    .then(parsed => { window._heartMesh = uploadOBJMesh(gl, parsed); })
+    .catch(err   => { console.error('Falha ao carregar heart OBJ:', err); });
+
   /* Drone OBJ (carregada de forma assíncrona) */
   window._droneMesh = null;
   window._droneHelices = null;
@@ -258,7 +270,29 @@
     _unlockingForDialogue = false;
   });
 
-  window.addEventListener('keydown', e => { if (e.code === 'KeyP') setPaused(!paused); });
+  let missionDebugMode = false;
+  window.addEventListener('keydown', e => {
+    if (e.code === 'KeyP') {
+      setPaused(!paused);
+      return;
+    }
+
+    // Debug: M liga/desliga, N volta missão, B avança missão.
+    if (e.code === 'KeyM') {
+      missionDebugMode = !missionDebugMode;
+      console.info('[Mission Debug] ' + (missionDebugMode ? 'ON' : 'OFF'));
+      return;
+    }
+    if (!missionDebugMode) return;
+
+    if (e.code === 'KeyN' && Mission && typeof Mission.debugJump === 'function') {
+      Mission.debugJump(-1);
+      console.info('[Mission Debug] Missao anterior');
+    } else if (e.code === 'KeyB' && Mission && typeof Mission.debugJump === 'function') {
+      Mission.debugJump(1);
+      console.info('[Mission Debug] Proxima missao');
+    }
+  });
 
   let mouseDX = 0, mouseDY = 0;
   document.addEventListener('mousemove', e => {
