@@ -253,6 +253,10 @@
   let mouseLocked = false;
   let paused      = false;
   let _unlockingForDialogue = false;
+  const _urlParams = new URLSearchParams(window.location.search);
+  const _legacyAutostart = _urlParams.get('autostart') === '1';
+  const _sessionAutostart = window.__menuStartAuthorized === true;
+  const _autoStart = _legacyAutostart || _sessionAutostart;
 
   function setPaused(val) {
     paused = val;
@@ -336,6 +340,7 @@
 
   const hudPause = document.getElementById('hud-pause');
   const pauseControlsBtn = document.getElementById('pause-controls-btn');
+  const pauseMenuBtn = document.getElementById('pause-menu-btn');
   const controlsPanel = document.getElementById('controls-panel');
 
   const sensSlider = document.getElementById('sens-slider');
@@ -380,6 +385,13 @@
     });
   }
 
+  if (pauseMenuBtn) {
+    pauseMenuBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      window.location.href = 'index.html';
+    });
+  }
+
   hudPause.addEventListener('click', e => {
     const interactive = e.target.closest('input, button, label, #controls-panel, .sensitivity-row, #sens-value, #time-value');
     if (!interactive) setPaused(false);
@@ -388,8 +400,8 @@
   const minimap = new MiniMap(200, 200);
   minimap.initCityLayer(City);
 
-  paused = true;
-  hudPause.style.display = 'flex';
+  paused = !_autoStart;
+  hudPause.style.display = paused ? 'flex' : 'none';
 
   /* ── 10. Loop principal ─────────────────────────────────────── */
 

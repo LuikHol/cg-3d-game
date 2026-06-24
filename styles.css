@@ -81,20 +81,41 @@ body.dialogue-open {
   margin-top: 8px;
 }
 
-#pause-controls-btn {
+#pause-controls-btn,
+#pause-menu-btn {
   pointer-events: auto;
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.20);
-  background: rgba(255,255,255,0.10);
+  border: 2px solid rgba(179, 238, 255, 0.48);
+  background: linear-gradient(180deg, rgba(61, 111, 158, 0.96), rgba(29, 62, 92, 0.95));
   color: #fff;
-  font-family: inherit;
+  font-family: 'Impact', 'Arial Black', 'Trebuchet MS', sans-serif;
   font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   cursor: pointer;
+  box-shadow: 0 4px 0 rgba(7, 14, 24, 0.85), 0 10px 18px rgba(0,0,0,0.35);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
 }
 
-#pause-controls-btn:hover {
-  background: rgba(255,255,255,0.16);
+#pause-menu-btn {
+  background: linear-gradient(180deg, rgba(255, 163, 79, 0.96), rgba(225, 106, 32, 0.96));
+  border-color: rgba(255, 220, 160, 0.62);
+}
+
+#pause-controls-btn:hover,
+#pause-controls-btn:focus-visible,
+#pause-menu-btn:hover,
+#pause-menu-btn:focus-visible {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(7, 14, 24, 0.88), 0 6px 12px rgba(0,0,0,0.28);
+  filter: brightness(1.08);
+}
+
+#pause-controls-btn:focus-visible,
+#pause-menu-btn:focus-visible {
+  outline: 2px solid rgba(210, 246, 255, 0.88);
+  outline-offset: 2px;
 }
 
 #controls-panel {

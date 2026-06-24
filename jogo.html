@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drone Delivery 3D</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      var START_KEY = 'dbd:start-from-menu';
+      var allowed = false;
+      try {
+        allowed = sessionStorage.getItem(START_KEY) === '1';
+        if (allowed) sessionStorage.removeItem(START_KEY);
+      } catch (_) {
+        allowed = false;
+      }
+      window.__menuStartAuthorized = allowed;
+      if (!allowed) {
+        window.location.replace('index.html');
+      }
+    })();
+  </script>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="hud">
+    <div id="mission-hud">
+      <div id="m-phase">Encontre a zona verde de coleta</div>
+      <div id="drone-coords" style="margin-top:4px;font-size:12px;line-height:1.4;font-family:monospace;color:#cfe8ff">Drone: x 0.0 | y 0.0 | z 0.0</div>
+      <div id="m-hoops" style="display:none"></div>
+      <div id="m-score-row" style="display:none;font-size:13px;line-height:1.6">
+        <span id="m-rank-wrap">Rank: <b id="m-score" style="font-size:18px">-</b></span>
+        &nbsp;&nbsp;
+        <span style="color:#8df">Tempo: <b id="m-timer">0.0s</b></span>
+      </div>
+      <div class="bar-bg" id="m-bar-wrap">
+        <div class="bar-fill" id="m-bar-fill"></div>
+      </div>
+    </div>
+
+    <div id="hud-pause">
+      <div class="pause-title">PAUSADO</div>
+      <div class="pause-hint">Clique ou pressione <kbd>P</kbd> para retomar</div>
+      <div class="pause-actions">
+        <button id="pause-controls-btn" type="button">Ver controles</button>
+        <button id="pause-menu-btn" type="button">Retornar ao menu</button>
+      </div>
+      <div id="controls-panel" class="hidden">
+        <div id="controls">
+          <kbd>Clique</kbd> — Capturar mouse (Esc para soltar)<br>
+          <kbd>Mouse</kbd> — Girar (yaw)<br>
+          <kbd>W</kbd> / <kbd>S</kbd> — Frente / Trás<br>
+          <kbd>A</kbd> / <kbd>D</kbd> — Esq / Dir<br>
+          <kbd>Space</kbd> — Subir<br>
+          <kbd>Shift</kbd> — Descer
+        </div>
+      </div>
+      <div class="sensitivity-row">
+        <span>Sensibilidade</span>
+        <input type="range" id="sens-slider" min="1" max="20" value="9" style="cursor:default">
+        <span id="sens-value">9</span>
+      </div>
+      <div class="sensitivity-row">
+        <span>Hora do dia</span>
+        <input type="range" id="time-slider" min="0" max="1000" value="380" style="cursor:default">
+        <span id="time-value" style="font-variant-numeric:tabular-nums;min-width:38px">09:07</span>
+      </div>
+    </div>
+  </div>
+
+  <!--
+    glMatrix – biblioteca de álgebra linear (permitida pelo enunciado).
+    Nenhuma funcionalidade gráfica é delegada a ela.
+  -->
+  <script src="js/lib/gl-matrix-min.js"></script>
+
+  <script src="js/core/shaders.js"></script>
+  <script src="js/core/geometry.js"></script>
+  <script src="js/core/obj-loader.js"></script>
+  <script src="js/core/input.js"></script>
+  <script src="js/minimap.js"></script>
+  <script src="js/city.js"></script>
+  <script src="js/mission.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+:root {
+  --sky-top: #071828;
+  --sky-mid: #0e2c45;
+  --sky-low: #174769;
+  --fog: rgba(132, 196, 235, 0.2);
+  --city-far: #224865;
+  --city-near: #18354d;
+  --road-dark: #101923;
+  --road-light: #2e3e4d;
+  --text-main: #f0f8ff;
+  --text-soft: #b9d4e8;
+  --panel-bg: rgba(9, 26, 41, 0.72);
+  --panel-border: rgba(147, 201, 236, 0.22);
+  --btn-main: #1dd39a;
+  --btn-main-hover: #39eab1;
+  --btn-alt: rgba(23, 54, 79, 0.9);
+  --btn-alt-hover: rgba(38, 78, 111, 0.95);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Trebuchet MS", "Verdana", sans-serif;
+  color: var(--text-main);
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 48%, var(--sky-low) 100%);
+  overflow-x: hidden;
+}
+
+.city-static {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#menu-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  display: block;
+}
+
+.sun {
+  position: absolute;
+  top: 9vh;
+  right: 10vw;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f9ffd3 0%, #b2ffde 58%, #43cfa4 100%);
+  box-shadow: 0 0 0 28px rgba(65, 184, 152, 0.22);
+}
+
+.haze {
+  position: absolute;
+  inset: auto 0 18vh;
+  height: 220px;
+  background: linear-gradient(180deg, rgba(130, 194, 232, 0), var(--fog));
+}
+
+.skyline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18vh;
+  height: 34vh;
+}
+
+.skyline-back {
+  background:
+    linear-gradient(var(--city-far), var(--city-far)) 1% 100% / 7% 52% no-repeat,
+    linear-gradient(var(--city-far), var(--city-far)) 12% 100% / 6% 68% no-repeat,
+    linear-gradient(var(--city-far), var(--city-far)) 20% 100% / 8% 57% no-repeat,
+    linear-gradient(var(--city-far), var(--city-far)) 30% 100% / 7% 73% no-repeat,
+    linear-gradient(var(--city-far), var(--city-far)) 40% 100% / 10% 62% no-repeat,
+    linear-gradient(var(--city-far), var(--city-far)) 53% 100% / 7% 75% no-repeat,
+    linear-gradient(var(--city-far), var(--city-far)) 63% 100% / 11% 58% no-repeat,
+    linear-gradient(var(--city-far), var(--city-far)) 78% 100% / 6% 72% no-repeat,
+    linear-gradient(var(--city-far), var(--city-far)) 87% 100% / 10% 54% no-repeat;
+  opacity: 0.5;
+}
+
+.skyline-mid {
+  bottom: 14vh;
+  height: 42vh;
+  background:
+    linear-gradient(var(--city-near), var(--city-near)) 0% 100% / 8% 61% no-repeat,
+    linear-gradient(var(--city-near), var(--city-near)) 10% 100% / 9% 80% no-repeat,
+    linear-gradient(var(--city-near), var(--city-near)) 22% 100% / 8% 67% no-repeat,
+    linear-gradient(var(--city-near), var(--city-near)) 32% 100% / 10% 88% no-repeat,
+    linear-gradient(var(--city-near), var(--city-near)) 45% 100% / 8% 73% no-repeat,
+    linear-gradient(var(--city-near), var(--city-near)) 56% 100% / 12% 84% no-repeat,
+    linear-gradient(var(--city-near), var(--city-near)) 71% 100% / 9% 70% no-repeat,
+    linear-gradient(var(--city-near), var(--city-near)) 83% 100% / 10% 82% no-repeat,
+    linear-gradient(var(--city-near), var(--city-near)) 95% 100% / 5% 68% no-repeat;
+  opacity: 0.86;
+}
+
+.road {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20vh;
+  background: linear-gradient(180deg, var(--road-light) 0%, var(--road-dark) 100%);
+}
+
+.road::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 56%;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, rgba(203, 228, 245, 0.92) 0 30px, transparent 30px 60px);
+  transform: translateY(-50%);
+  opacity: 0.88;
+}
+
+.menu-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 26px 20px 34px;
+}
+
+.menu-main {
+  width: min(720px, 94vw);
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--text-soft);
+  text-shadow: 0 2px 12px rgba(8, 16, 24, 0.65);
+}
+
+h1 {
+  margin: 0;
+  font-family: "Impact", "Arial Black", "Trebuchet MS", sans-serif;
+  font-size: clamp(40px, 8.5vw, 86px);
+  line-height: 0.98;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-shadow:
+    0 3px 0 rgba(5, 15, 28, 0.95),
+    0 10px 26px rgba(6, 14, 22, 0.88),
+    0 0 18px rgba(41, 223, 164, 0.35);
+}
+
+.tagline {
+  margin: 14px auto 24px;
+  max-width: 56ch;
+  font-size: 16px;
+  color: var(--text-soft);
+  text-shadow: 0 2px 10px rgba(7, 14, 22, 0.7);
+}
+
+.menu-actions {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  width: min(360px, 82vw);
+  margin: 0 auto;
+}
+
+.menu-btn {
+  display: block;
+  width: 100%;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-weight: 800;
+  font-family: "Impact", "Arial Black", "Trebuchet MS", sans-serif;
+  text-align: center;
+  color: var(--text-main);
+  background: linear-gradient(180deg, rgba(47, 91, 128, 0.96), rgba(23, 54, 79, 0.98));
+  border: 2px solid rgba(173, 232, 255, 0.56);
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow:
+    0 8px 0 rgba(7, 16, 24, 0.8),
+    0 16px 24px rgba(5, 12, 18, 0.36);
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.menu-btn.play {
+  color: #08271f;
+  background: linear-gradient(180deg, #5ef6c8 0%, #22c793 100%);
+  border-color: rgba(162, 255, 225, 0.9);
+  animation: playPulse 1.4s ease-in-out infinite alternate;
+}
+
+.menu-btn:hover,
+.menu-btn:focus-visible {
+  background: linear-gradient(180deg, rgba(64, 117, 160, 0.98), rgba(31, 74, 106, 1));
+  transform: translateY(2px);
+  border-color: rgba(198, 240, 255, 0.9);
+  box-shadow:
+    0 4px 0 rgba(7, 16, 24, 0.84),
+    0 9px 20px rgba(5, 12, 18, 0.28);
+}
+
+.menu-btn.play:hover,
+.menu-btn.play:focus-visible {
+  background: linear-gradient(180deg, #8bffd9 0%, #33d79f 100%);
+}
+
+.menu-btn:focus-visible {
+  outline: 2px solid rgba(188, 236, 255, 0.9);
+  outline-offset: 3px;
+}
+
+@keyframes playPulse {
+  from {
+    box-shadow:
+      0 8px 0 rgba(7, 16, 24, 0.8),
+      0 16px 24px rgba(5, 12, 18, 0.36),
+      0 0 0 rgba(47, 255, 192, 0.0);
+  }
+  to {
+    box-shadow:
+      0 8px 0 rgba(7, 16, 24, 0.8),
+      0 16px 24px rgba(5, 12, 18, 0.36),
+      0 0 22px rgba(47, 255, 192, 0.45);
+  }
+}
+
+.subpage-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.subpage-card {
+  width: min(640px, 94vw);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  background: var(--panel-bg);
+  box-shadow: 0 14px 34px rgba(3, 10, 16, 0.42);
+  padding: 22px;
+}
+
+.subpage-title {
+  margin: 0 0 12px;
+  font-size: clamp(32px, 6vw, 48px);
+  text-align: center;
+}
+
+.subpage-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.subpage-list li {
+  margin: 0 0 8px;
+  color: #d9eefe;
+}
+
+.subpage-text {
+  margin: 0 0 10px;
+  color: #d9eefe;
+  line-height: 1.5;
+}
+
+.subpage-actions {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.info-panels {
+  width: min(860px, 95vw);
+  margin-top: 30px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.panel {
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: var(--panel-bg);
+  box-shadow: 0 10px 28px rgba(3, 10, 16, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+h2 {
+  margin: 0 0 8px;
+  color: #d2f0ff;
+  font-size: 19px;
+}
+
+ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+li,
+.panel p {
+  margin: 0 0 6px;
+  line-height: 1.45;
+  color: #d9eefe;
+}
+
+@media (max-width: 680px) {
+  .sun {
+    width: 72px;
+    height: 72px;
+    top: 8vh;
+    right: 8vw;
+  }
+
+  .menu-shell {
+    justify-content: flex-start;
+    padding-top: 46px;
+  }
+
+  h1 {
+    font-size: clamp(36px, 12vw, 56px);
+  }
+
+  .tagline {
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
+
+  .info-panels {
+    grid-template-columns: 1fr;
+    margin-top: 22px;
+  }
+
+  .subpage-shell {
+    padding: 16px;
+  }
+}
