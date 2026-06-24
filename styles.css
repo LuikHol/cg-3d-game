@@ -56,8 +56,8 @@ body.dialogue-open {
 
 #hud-pause .pause-title {
   font-size: 36px;
-  font-weight: bold;
-  letter-spacing: 6px;
+  font-weight: 700;
+  letter-spacing: 3px;
 }
 
 #hud-pause .pause-hint {
@@ -85,13 +85,14 @@ body.dialogue-open {
 #pause-menu-btn {
   pointer-events: auto;
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 2px solid rgba(179, 238, 255, 0.48);
   background: linear-gradient(180deg, rgba(61, 111, 158, 0.96), rgba(29, 62, 92, 0.95));
   color: #fff;
-  font-family: 'Impact', 'Arial Black', 'Trebuchet MS', sans-serif;
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
   font-size: 14px;
-  letter-spacing: 0.05em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   cursor: pointer;
   box-shadow: 0 4px 0 rgba(7, 14, 24, 0.85), 0 10px 18px rgba(0,0,0,0.35);
@@ -185,7 +186,7 @@ body.dialogue-open {
   position: relative;
   flex: 1;
   min-height: 140px;
-  border-radius: 14px 0 0 0;
+  border-radius: 8px 0 0 0;
   border-top: 1px solid rgba(255,255,255,0.28);
   border-left: 1px solid rgba(255,255,255,0.28);
   background: linear-gradient(180deg, rgba(7,10,16,0.94), rgba(6,8,13,0.90));
@@ -197,7 +198,7 @@ body.dialogue-open {
 
 #vn-name {
   font-size: 14px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   color: #87ceff;
   margin-bottom: 6px;
 }
@@ -217,7 +218,7 @@ body.dialogue-open {
   gap: 8px;
   padding: 6px 8px;
   border: 1px solid rgba(255,255,255,0.28);
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(35,50,85,0.34);
   color: #fff;
   font-size: 12px;
@@ -277,4 +278,100 @@ body.dialogue-open {
   border-radius: 4px;
   width: 0%;
   transition: width 0.06s linear;
+}
+
+#final-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(12, 28, 42, 0.72), rgba(0, 0, 0, 0.82));
+  pointer-events: auto;
+}
+
+#final-screen.hidden {
+  display: none;
+}
+
+.final-card {
+  width: min(560px, calc(100vw - 32px));
+  border-radius: 12px;
+  padding: 26px 24px 22px;
+  background: linear-gradient(180deg, rgba(14, 34, 51, 0.98), rgba(7, 18, 28, 0.96));
+  border: 2px solid rgba(179, 238, 255, 0.34);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45), 0 0 36px rgba(55, 237, 186, 0.16);
+  text-align: center;
+}
+
+.final-badge {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #5ef6c8, #22c793);
+  color: #08231c;
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.final-title {
+  margin: 0;
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-weight: 700;
+  font-size: clamp(30px, 5vw, 54px);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 4px 0 rgba(4, 12, 18, 0.9), 0 0 16px rgba(69, 255, 205, 0.25);
+}
+
+.final-rank {
+  margin: 14px 0 8px;
+  font-size: 20px;
+  color: #dff7ff;
+}
+
+.final-summary {
+  margin: 0;
+  font-size: 15px;
+  color: #bfd9e8;
+}
+
+.final-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.final-actions button {
+  pointer-events: auto;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 2px solid rgba(179, 238, 255, 0.48);
+  background: linear-gradient(180deg, rgba(61, 111, 158, 0.96), rgba(29, 62, 92, 0.95));
+  color: #fff;
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgba(7, 14, 24, 0.85), 0 10px 18px rgba(0,0,0,0.35);
+}
+
+#replay-btn {
+  background: linear-gradient(180deg, #5ef6c8 0%, #22c793 100%);
+  color: #07231b;
+}
+
+.final-actions button:hover,
+.final-actions button:focus-visible {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(7, 14, 24, 0.88), 0 6px 12px rgba(0,0,0,0.28);
+  outline: none;
 }

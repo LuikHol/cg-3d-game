@@ -287,6 +287,14 @@
       console.info('[Mission Debug] ' + (missionDebugMode ? 'ON' : 'OFF'));
       return;
     }
+
+    if (e.code === 'KeyL') {
+      e.preventDefault();
+      showFinalScreen({ averageRank: 'S', averageScore: 0.92 });
+      console.info('[Debug] Tela final exibida');
+      return;
+    }
+
     if (!missionDebugMode) return;
 
     if (e.code === 'KeyN' && Mission && typeof Mission.debugJump === 'function') {
@@ -342,6 +350,11 @@
   const pauseControlsBtn = document.getElementById('pause-controls-btn');
   const pauseMenuBtn = document.getElementById('pause-menu-btn');
   const controlsPanel = document.getElementById('controls-panel');
+  const finalScreen = document.getElementById('final-screen');
+  const finalRank = document.getElementById('final-rank');
+  const finalSummary = document.getElementById('final-summary');
+  const replayBtn = document.getElementById('replay-btn');
+  const finalMenuBtn = document.getElementById('final-menu-btn');
 
   const sensSlider = document.getElementById('sens-slider');
   const sensValue  = document.getElementById('sens-value');
@@ -387,6 +400,47 @@
 
   if (pauseMenuBtn) {
     pauseMenuBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      window.location.href = 'index.html';
+    });
+  }
+
+  function hideFinalScreen() {
+    if (!finalScreen) return;
+    finalScreen.classList.add('hidden');
+    finalScreen.setAttribute('aria-hidden', 'true');
+  }
+
+  function showFinalScreen(summary) {
+    if (!finalScreen) return;
+    const avgScore = summary && typeof summary.averageScore === 'number' ? summary.averageScore : 0;
+    const avgRank = summary && summary.averageRank ? summary.averageRank : '-';
+    if (finalRank) {
+      finalRank.textContent = `Média dos ranks: ${avgRank}  |  Média geral: ${(avgScore * 100).toFixed(0)}%`;
+    }
+    if (finalSummary) {
+      finalSummary.textContent = 'Você completou todas as missões. Pode repetir a corrida agora.';
+    }
+    finalScreen.classList.remove('hidden');
+    finalScreen.setAttribute('aria-hidden', 'false');
+    if (document.pointerLockElement === canvas) document.exitPointerLock();
+    hudPause.style.display = 'none';
+    paused = true;
+  }
+
+  function showDebugFinalScreen() {
+    showFinalScreen({ averageRank: 'S', averageScore: 0.92 });
+  }
+
+  if (replayBtn) {
+    replayBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      window.location.reload();
+    });
+  }
+
+  if (finalMenuBtn) {
+    finalMenuBtn.addEventListener('click', e => {
       e.stopPropagation();
       window.location.href = 'index.html';
     });
@@ -508,6 +562,15 @@
     }
 
     Mission.update(dt);
+
+    if (Mission.isFinished && Mission.isFinished()) {
+      const summary = Mission.getFinalSummary ? Mission.getFinalSummary() : null;
+      showFinalScreen(summary);
+      mouseDX = 0;
+      mouseDY = 0;
+      requestAnimationFrame(frame);
+      return;
+    }
 
     /* ── Tilt visual ────────────────────────────────────────── */
     const vFwd    =  drone.vel[0] * fwdVec[0] + drone.vel[2] * fwdVec[2];

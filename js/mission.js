@@ -97,6 +97,8 @@ const Mission = (() => {
   let _heartMtlColors = null;
   let _heartMtlTried = false;
   let _nextMissionTimerId = null;
+  let _missionResults = [];
+  let _finalSummary = null;
 
   /* ── Diálogo estilo visual novel (aceite da missão) ──────────── */
   const PICKUP_DIALOGUES = [
@@ -302,7 +304,45 @@ const Mission = (() => {
       hoopTimer    : 0,
       def,
       prevDists: def.hoops.map(h => signedDist(_drone.pos, h)),
+      _resultRecorded: false,
     };
+  }
+
+  function scoreToRank(s) {
+    const maxS = (_mission ? _mission.def.hoops.length : MISSION_DEFS[0].hoops.length) * SCORE_PER_HOOP + 500;
+    const ratio = s / maxS;
+    if (ratio >= 0.88) return { letter: 'S', color: '#ffd700', value: 4 };
+    if (ratio >= 0.72) return { letter: 'A', color: '#4f4',    value: 3 };
+    if (ratio >= 0.55) return { letter: 'B', color: '#4af',    value: 2 };
+    return               { letter: 'C', color: '#f84',    value: 1 };
+  }
+
+  function recordMissionResultIfNeeded() {
+    if (!_mission || _mission._resultRecorded !== false) return;
+    const maxS = _mission.def.hoops.length * SCORE_PER_HOOP + 500;
+    const rank = scoreToRank(_mission.totalScore);
+    _missionResults.push({
+      index: _missionIdx,
+      score: _mission.totalScore,
+      maxScore: maxS,
+      rankLetter: rank.letter,
+      rankValue: rank.value,
+    });
+    _mission._resultRecorded = true;
+    if (_missionResults.length === MISSION_DEFS.length) {
+      const avgValue = _missionResults.reduce((sum, item) => sum + item.rankValue, 0) / _missionResults.length;
+      const avgLetter = avgValue >= 3.5 ? 'S'
+        : avgValue >= 2.5 ? 'A'
+        : avgValue >= 1.5 ? 'B'
+        : 'C';
+      const avgScore = _missionResults.reduce((sum, item) => sum + (item.score / item.maxScore), 0) / _missionResults.length;
+      _finalSummary = {
+        averageRank: avgLetter,
+        averageRankValue: avgValue,
+        averageScore: avgScore,
+        results: _missionResults.slice(),
+      };
+    }
   }
 
   /* ── Lógica por frame ─────────────────────────────────────────── */
@@ -390,15 +430,6 @@ const Mission = (() => {
     const tSec    = _mission.missionTimer.toFixed(1) + 's';
     const dispScore = _mission.totalScore + (_mission.phase === 'flying' ? _mission.score : 0);
 
-    function scoreToRank(s) {
-    const maxS = hoops.length * SCORE_PER_HOOP + 500;
-    const ratio = s / maxS;
-    if (ratio >= 0.88) return { letter: 'S', color: '#ffd700' };
-    if (ratio >= 0.72) return { letter: 'A', color: '#4f4'    };
-    if (ratio >= 0.55) return { letter: 'B', color: '#4af'    };
-    return               { letter: 'C', color: '#f84'    };
-    }
-
     switch (_mission.phase) {
       case 'pickup':
         hud.phase.textContent    = _mission._acceptPending
@@ -438,6 +469,7 @@ const Mission = (() => {
       case 'done': {
         const rk = scoreToRank(_mission.totalScore);
         if (_missionIdx + 1 < MISSION_DEFS.length) {
+          recordMissionResultIfNeeded();
           hud.phase.textContent    = `Missão ${current} OK! Rank: ${rk.letter} | Tempo: ${tSec}`;
           hud.hoops.style.display   = 'none';
           hud.scoreRow.style.display = 'none';
@@ -450,6 +482,7 @@ const Mission = (() => {
             }, 2000);
           }
         } else {
+          recordMissionResultIfNeeded();
           hud.phase.textContent    = '🎉 Concluído! Rank final: ' + rk.letter + ' | ' + tSec;
           hud.hoops.style.display   = 'none';
           hud.scoreRow.style.display = 'none';
@@ -856,6 +889,19 @@ const Mission = (() => {
     _setMissionByIndex(_missionIdx + (delta | 0));
   }
 
+  function resetProgress() {
+    _missionResults = [];
+    _finalSummary = null;
+  }
+
+  function getFinalSummary() {
+    return _finalSummary;
+  }
+
+  function isFinished() {
+    return _missionIdx === MISSION_DEFS.length - 1 && _mission && _mission.phase === 'done' && !!_finalSummary;
+  }
+
   function draw(rc) {
     const { gl, loc } = rc;
     const ph  = _mission.phase;
@@ -947,6 +993,7 @@ const Mission = (() => {
     init(droneRef) {
       _drone      = droneRef;
       _missionIdx = 0;
+      resetProgress();
       _mission    = buildMissionState(0);
       if (_nextMissionTimerId) {
         clearTimeout(_nextMissionTimerId);
@@ -958,6 +1005,12 @@ const Mission = (() => {
     update,
 
     debugJump,
+
+    resetProgress,
+
+    getFinalSummary,
+
+    isFinished,
 
     isDialogueBlocking,
 

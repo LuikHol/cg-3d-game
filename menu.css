@@ -154,11 +154,12 @@ body {
 
 h1 {
   margin: 0;
-  font-family: "Impact", "Arial Black", "Trebuchet MS", sans-serif;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-weight: 600;
   font-size: clamp(40px, 8.5vw, 86px);
   line-height: 0.98;
   color: #ffffff;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   text-shadow:
     0 3px 0 rgba(5, 15, 28, 0.95),
@@ -187,15 +188,15 @@ h1 {
   width: 100%;
   text-decoration: none;
   text-transform: uppercase;
-  letter-spacing: 0.11em;
-  font-weight: 800;
-  font-family: "Impact", "Arial Black", "Trebuchet MS", sans-serif;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   text-align: center;
   color: var(--text-main);
   background: linear-gradient(180deg, rgba(47, 91, 128, 0.96), rgba(23, 54, 79, 0.98));
   border: 2px solid rgba(173, 232, 255, 0.56);
-  border-radius: 14px;
-  padding: 14px 18px;
+  border-radius: 6px;
+  padding: 11px 16px;
   box-shadow:
     0 8px 0 rgba(7, 16, 24, 0.8),
     0 16px 24px rgba(5, 12, 18, 0.36);
@@ -212,7 +213,7 @@ h1 {
 .menu-btn:hover,
 .menu-btn:focus-visible {
   background: linear-gradient(180deg, rgba(64, 117, 160, 0.98), rgba(31, 74, 106, 1));
-  transform: translateY(2px);
+  transform: translateY(1px);
   border-color: rgba(198, 240, 255, 0.9);
   box-shadow:
     0 4px 0 rgba(7, 16, 24, 0.84),
@@ -257,7 +258,7 @@ h1 {
 .subpage-card {
   width: min(640px, 94vw);
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
+  border-radius: 8px;
   background: var(--panel-bg);
   box-shadow: 0 14px 34px rgba(3, 10, 16, 0.42);
   padding: 22px;
@@ -301,7 +302,7 @@ h1 {
 
 .panel {
   border: 1px solid var(--panel-border);
-  border-radius: 14px;
+  border-radius: 6px;
   padding: 14px 16px;
   background: var(--panel-bg);
   box-shadow: 0 10px 28px rgba(3, 10, 16, 0.35);
