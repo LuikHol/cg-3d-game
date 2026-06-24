@@ -609,34 +609,6 @@ const Renderer = (() => {
       gl.uniform1f(loc.uUseTex, 0.0);
           gl.uniform1f(loc.uSpecular, 1.0);
       if (loc.aUV >= 0) gl.disableVertexAttribArray(loc.aUV);
-    } else {
-      /* Fallback: desenha com caixas se modelo não foi carregado */
-      rc.bindMesh();
-
-      /* Corpo principal */
-      mat4.copy(modelMat, droneBase);
-      mat4.scale(modelMat, modelMat, [1.8, 0.25, 1.8]);
-      _drawBox(rc, 0.15, 0.15, 0.80);
-
-      /* Cúpula / cabine */
-      mat4.copy(modelMat, droneBase);
-      mat4.translate(modelMat, modelMat, [0, 0.22, 0]);
-      mat4.scale(modelMat, modelMat, [0.65, 0.35, 0.65]);
-      _drawBox(rc, 0.20, 0.20, 0.90);
-
-      /* Indicador de nariz (amarelo) */
-      mat4.copy(modelMat, droneBase);
-      mat4.translate(modelMat, modelMat, [0, 0, -1.0]);
-      mat4.scale(modelMat, modelMat, [0.22, 0.18, 0.22]);
-      _drawBox(rc, 1.0, 0.85, 0.0);
-
-      /* Guardas das hélices (vermelho nos 4 cantos) */
-      for (let i = 0; i < PROP_LOCAL.length; i++) {
-        mat4.copy(modelMat, droneBase);
-        mat4.translate(modelMat, modelMat, PROP_LOCAL[i]);
-        mat4.scale(modelMat, modelMat, [0.38, 0.10, 0.38]);
-        _drawBox(rc, 0.90, 0.15, 0.15);
-      }
     }
 
     /* Farois do drone: emissivos com feixe suave noturno */
