@@ -1,8 +1,9 @@
 # Delivered by Drones
 
+### [Slides](https://docs.google.com/presentation/d/10FbXRhKX-OXOxwQFqdM4Un4Uo_--1Qd-7WFBkudNuoY/edit?usp=sharing)
+
 Jogo 3D de entrega com drone desenvolvido para a cadeira de Computação Gráfica.  
 O jogador pilota um drone por uma cidade procedural, passando por aros e entregando encomendas em 5 missões progressivas.
-
 
 https://github.com/user-attachments/assets/5acfe417-1ee1-4de1-8355-069067fbbda6
 
